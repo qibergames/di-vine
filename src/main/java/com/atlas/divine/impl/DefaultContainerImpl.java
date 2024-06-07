@@ -325,7 +325,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             return get(type, Container.class, properties);
         }
     }
- 
+
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
      * a dependency instance may be retrieved from the container cache, or a new instance is created.
@@ -381,7 +381,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         ServiceScope scope = service.scope();
         if (scope == ServiceScope.SINGLETON && rootContainer != null)
             return rootContainer.get(type, context);
-        // if the root container is null, that means that the current container is the root
+        // if the root container is null, that means that the current container is the root, fall through the next case
 
         // create an instance each time the dependency is accessed
         else if (scope == ServiceScope.TRANSIENT)

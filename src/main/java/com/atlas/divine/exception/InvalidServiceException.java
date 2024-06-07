@@ -9,7 +9,7 @@ public class InvalidServiceException extends GenericServiceException {
     /**
      * Initialize a new instance of the {@link InvalidServiceException} class.
      *
-     * @param message the message that describes the error.
+     * @param message the message that describes the error
      */
     public InvalidServiceException(@NotNull String message) {
         super(message);
