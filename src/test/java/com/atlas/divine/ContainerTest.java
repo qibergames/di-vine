@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -314,6 +315,36 @@ class ContainerTest {
         Container.addProvider(MyCustomAnnotation.class, new MyProvider());
         MyProvidedService service = Container.get(MyProvidedService.class);
         assertEquals(123, service.service.get());
+    }
+
+    @Service
+    interface MyMultipleService {
+        int get();
+    }
+
+    @Service(id = "my-multiple-service", multiple = true)
+    static class MyFirstMultipleService implements MyMultipleService {
+        @Override
+        public int get() {
+            return 100;
+        }
+    }
+
+    @Service(id = "my-multiple-service", multiple = true)
+    static class MySecondMultipleService implements MyMultipleService {
+        @Override
+        public int get() {
+            return 200;
+        }
+    }
+
+    @Test
+    public void test_multiple_services() {
+        Container.insert(MyFirstMultipleService.class, MySecondMultipleService.class);
+        List<MyMultipleService> services = Container.getMany("my-multiple-service");
+        assertEquals(2, services.size());
+        assertEquals(100, services.get(0).get());
+        assertEquals(200, services.get(1).get());
     }
 
     // TODO add more cases, such as the implementation class does not implement the service interface,
