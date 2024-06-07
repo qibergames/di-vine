@@ -1,6 +1,8 @@
 package com.atlas.divine;
 
+import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.runtime.lifecycle.AfterInitialized;
+import com.atlas.divine.tree.ContainerInstance;
 import com.atlas.divine.tree.ContainerRegistry;
 import com.atlas.divine.exception.UnknownDependencyException;
 import com.atlas.divine.descriptor.factory.Factory;
@@ -12,6 +14,9 @@ import com.atlas.divine.descriptor.property.PropertyProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -274,6 +279,41 @@ class ContainerTest {
 
         MyService service = Container.get(MyService.class);
         assertEquals(1337, service.value);
+    }
+
+    interface MyCustomService {
+        int get();
+    }
+
+    static class MyCustomServiceImpl implements MyCustomService {
+        @Override
+        public int get() {
+            return 123;
+        }
+    }
+
+    static class MyProvider implements AnnotationProvider<MyCustomServiceImpl> {
+        @Override
+        public @NotNull MyCustomServiceImpl provide(@NotNull Object target, @NotNull ContainerInstance container) {
+            return new MyCustomServiceImpl();
+        }
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface MyCustomAnnotation {
+    }
+
+    @Service
+    static class MyProvidedService {
+        @MyCustomAnnotation
+        public MyCustomService service;
+    }
+
+    @Test
+    public void test_custom_annotation_injection() {
+        Container.addProvider(MyCustomAnnotation.class, new MyProvider());
+        MyProvidedService service = Container.get(MyProvidedService.class);
+        assertEquals(123, service.service.get());
     }
 
     // TODO add more cases, such as the implementation class does not implement the service interface,
