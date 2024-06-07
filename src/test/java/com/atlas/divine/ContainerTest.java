@@ -1,5 +1,6 @@
 package com.atlas.divine;
 
+import com.atlas.divine.exception.InvalidServiceException;
 import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.runtime.lifecycle.AfterInitialized;
 import com.atlas.divine.tree.ContainerInstance;
@@ -178,9 +179,9 @@ class ContainerTest {
 
     @Test
     public void test_Container_error_on_interface_or_enum_without_Factory() {
-        assertThrows(UnknownDependencyException.class, () -> Container.get(MyService.class));
-        assertThrows(UnknownDependencyException.class, () -> Container.get(MyEnum.class));
-        assertThrows(UnknownDependencyException.class, () -> Container.get(MyAnnotation.class));
+        assertThrows(InvalidServiceException.class, () -> Container.get(MyService.class));
+        assertThrows(InvalidServiceException.class, () -> Container.get(MyEnum.class));
+        assertThrows(InvalidServiceException.class, () -> Container.get(MyAnnotation.class));
     }
 
     static class DynamicServiceFactory implements Factory<MyDynamicService, String> {
@@ -245,6 +246,11 @@ class ContainerTest {
 
         MyService service = Container.get(MyService.class);
         assertEquals("Hello, World", service.value);
+    }
+
+    @Test
+    public void test_unknown_token_retrieval() {
+        assertThrows(UnknownDependencyException.class, () -> Container.get("UNKNOWN_TOKEN"));
     }
 
     @Service(implementation = MyServiceImplementation.class)
