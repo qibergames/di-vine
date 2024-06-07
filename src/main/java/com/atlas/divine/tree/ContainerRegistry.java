@@ -1,9 +1,11 @@
 package com.atlas.divine.tree;
 
 import com.atlas.divine.tree.cache.Dependency;
+import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Represents a registry of container instances. Container registries may have child registries.
@@ -34,7 +36,14 @@ public interface ContainerRegistry extends ContainerInstance {
      *
      * @return the list of all dependencies in the container hierarchy
      */
-    @NotNull List<Dependency> getDependencyTree();
+    @NotNull List<@NotNull Dependency> getDependencyTree();
+
+    /**
+     * Retrieve the set of container instances that are registered in the container hierarchy.
+     *
+     * @return the set of all container instances in the container hierarchy
+     */
+    @NotNull Set<@NotNull ContainerRegistry> getContainerTree();
 
     /**
      * Retrieve the name of this container registry implementation.
@@ -42,4 +51,11 @@ public interface ContainerRegistry extends ContainerInstance {
      * @return the name of this container registry implementation
      */
     @NotNull String getName();
+
+    /**
+     * Retrieve the json representation of this container registry.
+     *
+     * @return the container data exported as json
+     */
+    @NotNull JsonObject export();
 }

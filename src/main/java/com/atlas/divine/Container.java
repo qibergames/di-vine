@@ -10,6 +10,8 @@ import com.atlas.divine.exception.UnknownDependencyException;
 import com.atlas.divine.tree.ContainerProvider;
 import com.atlas.divine.tree.ContainerRegistry;
 import com.atlas.divine.impl.ClassLoaderContainerProvider;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -307,6 +309,22 @@ public class Container {
     public void reset() {
         CallContext context = getContextContainer();
         context.getContainer().reset();
+    }
+
+    /**
+     * Retrieve the json representation of the container hierarchy.
+     *
+     * @return the container tree exported as json
+     */
+    public JsonObject export() {
+        JsonObject json = new JsonObject();
+
+        ContainerRegistry global = ofGlobal();
+        json.addProperty("totalDependencies", global.getDependencyTree().size());
+        json.addProperty("totalContainers", global.getContainerTree().size());
+        json.add("global", global.export());
+
+        return json;
     }
 
     /**
