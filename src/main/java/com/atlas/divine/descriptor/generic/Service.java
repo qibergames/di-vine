@@ -43,7 +43,7 @@ public @interface Service {
      *
      * @return the desired instantiation strategy for the service
      */
-    @NotNull ServiceScope scope() default ServiceScope.SINGLETON;
+    @NotNull ServiceScope scope() default ServiceScope.CONTAINER;
 
     /**
      * Retrieve the unique identifier of the service.
