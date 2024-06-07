@@ -1,5 +1,6 @@
 package com.atlas.divine;
 
+import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.exception.UnknownDependencyException;
 import com.atlas.divine.tree.ContainerProvider;
@@ -12,6 +13,7 @@ import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.annotation.Annotation;
 import java.util.function.Consumer;
 
 /**
@@ -74,6 +76,27 @@ public class Container {
     public void removeHook(@NotNull String id) {
         CallContext context = getContextContainer();
         context.getContainer().removeHook(id);
+    }
+
+    /**
+     * Register a new custom annotation for the container instance with the specified implementation provider.
+     *
+     * @param annotation the custom annotation that will be registered
+     * @param provider the implementation provider that will be called when the annotation is present
+     */
+    public void addProvider(@NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?> provider) {
+        CallContext context = getContextContainer();
+        context.getContainer().addProvider(annotation, provider);
+    }
+
+    /**
+     * Remove a custom annotation from the container instance.
+     *
+     * @param annotation the custom annotation that will be removed
+     */
+    public void removeProvider(@NotNull Class<? extends Annotation> annotation) {
+        CallContext context = getContextContainer();
+        context.getContainer().removeProvider(annotation);
     }
 
     /**
