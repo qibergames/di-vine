@@ -1,10 +1,12 @@
 package com.atlas.divine.tree;
 
+import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.exception.UnknownDependencyException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.annotation.Annotation;
 import java.util.function.Consumer;
 
 /**
@@ -26,6 +28,21 @@ public interface ContainerInstance {
      * @param id the unique identifier of the hook
      */
     void removeHook(@NotNull String id);
+
+    /**
+     * Register a new custom annotation for the container instance with the specified implementation provider.
+     *
+     * @param annotation the custom annotation that will be registered
+     * @param provider the implementation provider that will be called when the annotation is present
+     */
+    void addProvider(@NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?> provider);
+
+    /**
+     * Remove a custom annotation from the container instance.
+     *
+     * @param annotation the custom annotation that will be removed
+     */
+    void removeProvider(@NotNull Class<? extends Annotation> annotation);
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,

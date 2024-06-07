@@ -1,6 +1,7 @@
 package com.atlas.divine.impl;
 
 import com.atlas.divine.*;
+import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.tree.cache.Dependency;
 import com.atlas.divine.descriptor.generic.*;
@@ -22,6 +23,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +63,11 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * The map of the hooks registered to this container that can modify dependencies on creation.
      */
     private final @NotNull Map<@NotNull String, @NotNull ContainerHook> hooks = new ConcurrentHashMap<>();
+
+    /**
+     * The map of the registered implementation providers for custom annotations.
+     */
+    private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull AnnotationProvider<?>> providers = new ConcurrentHashMap<>();
 
     /**
      * The root container of the container hierarchy.
@@ -135,6 +143,34 @@ public class DefaultContainerImpl implements ContainerRegistry {
     @Override
     public void removeHook(@NotNull String id) {
         hooks.remove(id);
+    }
+
+    /**
+     * Register a new custom annotation for the container instance with the specified implementation provider.
+     *
+     * @param annotation the custom annotation that will be registered
+     * @param provider the implementation provider that will be called when the annotation is present
+     */
+    @Override
+    public void addProvider(
+        @NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?> provider
+    ) {
+        Retention retention = annotation.getAnnotation(Retention.class);
+        if (retention == null || retention.value() != RetentionPolicy.RUNTIME)
+            throw new UnknownDependencyException(
+                "Annotation " + annotation.getName() + " must have a RUNTIME retention"
+            );
+        providers.put(annotation, provider);
+    }
+
+    /**
+     * Remove a custom annotation from the container instance.
+     *
+     * @param annotation the custom annotation that will be removed
+     */
+    @Override
+    public void removeProvider(@NotNull Class<? extends Annotation> annotation) {
+        providers.remove(annotation);
     }
 
     /**
@@ -366,6 +402,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // inject the dependencies for the instance's fields
         injectFields(type, value, context);
 
+        // inject the implementations for custom annotations into the service instance
+        injectProviders(type, value);
+
         // apply the registered hooks to the instance
         value = applyHooks(value, service);
 
@@ -578,17 +617,17 @@ public class DefaultContainerImpl implements ContainerRegistry {
     private <T> void injectFields(@NotNull Class<T> clazz, @NotNull T instance, @NotNull Class<?> context) {
         // loop through the fields of the class
         for (Field field : clazz.getDeclaredFields()) {
-            // make sure the field is accessible for the dependency injector
-            field.setAccessible(true);
-
-            // retrieve the type metadata of the field
-            Class<?> fieldType = field.getType();
-
             // resolve the injection descriptor of the field
             Inject inject = field.getAnnotation(Inject.class);
             if (inject == null)
                 continue;
 
+            // make sure the field is accessible for the dependency injector
+            field.setAccessible(true);
+
+            // retrieve the type metadata of the field
+            Class<?> fieldType = field.getType();
+            // retrieve the implementation type of the service, if it is specified
             Class<?> implementation = inject.implementation();
 
             // resolve the properties of the injection descriptor
@@ -644,6 +683,37 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
             // resolve and inject the dependency for the field
             field.set(instance, get(dependencyType, context, properties));
+        }
+    }
+
+    /**
+     * Inject implementations for custom annotations into the specified service instance.
+     *
+     * @param type the class type of the service
+     * @param instance the instance of the service
+     * @param <TService> the type of the service
+     */
+    @SneakyThrows
+    private <TService> void injectProviders(@NotNull Class<TService> type, @NotNull TService instance) {
+        // iterate over each field of the service class
+        for (Field field : type.getDeclaredFields()) {
+            // iterate over each registered implementation provider
+            for (Map.Entry<Class<? extends Annotation>, AnnotationProvider<?>> entry : providers.entrySet()) {
+                // skip the provider if the field is not annotated with the custom annotation
+                if (!field.isAnnotationPresent(entry.getKey()))
+                    continue;
+
+                // make the field accessible for the dependency injector
+                field.setAccessible(true);
+
+                // resolve the implementation of the service
+                @SuppressWarnings("rawtypes")
+                Object provide = ((AnnotationProvider) entry.getValue()).provide(instance, this);
+
+                // inject the implementation of the service into the field
+                field.set(instance, provide);
+                break;
+            }
         }
     }
 
