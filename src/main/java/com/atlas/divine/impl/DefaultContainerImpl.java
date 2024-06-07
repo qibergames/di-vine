@@ -16,6 +16,8 @@ import com.atlas.divine.descriptor.implementation.NoImplementation;
 import com.atlas.divine.descriptor.property.NoProperties;
 import com.atlas.divine.descriptor.property.NoPropertiesProvider;
 import com.atlas.divine.tree.ContainerRegistry;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -25,9 +27,7 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -108,7 +108,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         DefaultContainerImpl container = containers.get(name);
         // create the container if it does not exist
         if (container == null) {
-            container = new DefaultContainerImpl(rootContainer != null ? rootContainer : this);
+            container = new DefaultContainerImpl(rootContainer != null ? rootContainer : this, name);
             containers.put(name, container);
         }
         return container;
@@ -135,6 +135,21 @@ public class DefaultContainerImpl implements ContainerRegistry {
             .stream()
             .map(value -> new Dependency(value.value(), value.descriptor(), value.context()))
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Retrieve the list of container instances that are registered in the container hierarchy.
+     *
+     * @return the set of all container instances in the container hierarchy
+     */
+    @Override
+    public @NotNull Set<@NotNull ContainerRegistry> getContainerTree() {
+        // make sure to start resolving the tree from the root container
+        if (rootContainer instanceof DefaultContainerImpl)
+            return rootContainer.getContainerTree();
+
+        // recursively resolve the containers from the child containers
+        return getLocalContainers();
     }
 
     /**
@@ -1242,6 +1257,23 @@ public class DefaultContainerImpl implements ContainerRegistry {
     }
 
     /**
+     * Retrieve the list of the containers registered locally in the container.
+     *
+     * @return local container instances
+     */
+    public @NotNull Set<ContainerRegistry> getLocalContainers() {
+        // resolve the containers from the local container
+        Set<ContainerRegistry> local = new HashSet<>();
+        local.add(this);
+
+        // recursively resolve the containers from the child containers
+        for (DefaultContainerImpl child : containers.values())
+            local.addAll(child.getLocalContainers());
+
+        return local;
+    }
+
+    /**
      * Retrieve the list of all the registered dependencies in the container tree.
      *
      * @return each instance of the registered dependencies in the container tree
@@ -1252,7 +1284,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             return ((DefaultContainerImpl) rootContainer).getTotalDependencies();
 
         // recursively resolve the dependencies from the child containers
-        return new ArrayList<>(getLocalDependencies());
+        return getLocalDependencies();
     }
 
     /**
@@ -1286,5 +1318,40 @@ public class DefaultContainerImpl implements ContainerRegistry {
             ", containers=" + containers.size() +
             ", hooks=" + hooks.size() +
             '}';
+    }
+
+    /**
+     * Retrieve the json representation of this container registry.
+     *
+     * @return the container data exported as json
+     */
+    @Override
+    public @NotNull JsonObject export() {
+        JsonObject json = new JsonObject();
+
+        json.addProperty("name", name);
+
+        JsonArray dependencies = new JsonArray();
+        for (CachedDependency<?> dependency : this.dependencies.values())
+            dependencies.add(dependency.export());
+        json.add("dependencies", dependencies);
+
+        JsonObject values = new JsonObject();
+        for (Map.Entry<String, Object> entry : this.values.entrySet())
+            values.addProperty(entry.getKey(), entry.getValue().toString());
+        json.add("values", values);
+
+        JsonObject hooks = new JsonObject();
+        for (Map.Entry<String, ContainerHook> entry : this.hooks.entrySet())
+            hooks.addProperty(entry.getKey(), entry.getValue().toString());
+        json.add("hooks", hooks);
+
+        JsonArray containers = new JsonArray();
+        for (DefaultContainerImpl container : this.containers.values()) {
+            containers.add(container.export());
+        }
+        json.add("containers", containers);
+
+        return json;
     }
 }
