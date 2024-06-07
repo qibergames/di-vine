@@ -87,4 +87,17 @@ public @interface Service {
      * @return the array of classes that are allowed to implement this service interface
      */
     @NotNull @ServiceLike Class<?> @NotNull [] permits() default {};
+
+    /**
+     * Retrieve the indication, whether the service should be grouped with other services of the same {@link #id()}.
+     * <p>
+     * If this property is set to {@code true}, you will need to use {@link Container#getMany(String)} to retrieve
+     * the list of services registered with the same identifier.
+     * <p>
+     * Note that, by default, the container does not know what services may exist, therefore you need to register them
+     * using {@link Container#insert(Class[])}.
+     *
+     * @return the indication, whether the service should be grouped with other services of the same identifier
+     */
+    boolean multiple() default false;
 }

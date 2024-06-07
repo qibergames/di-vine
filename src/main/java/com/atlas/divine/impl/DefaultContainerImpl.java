@@ -70,6 +70,11 @@ public class DefaultContainerImpl implements ContainerRegistry {
     private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull AnnotationProvider<?>> providers = new ConcurrentHashMap<>();
 
     /**
+     * The map of registered services that are grouped by their unique identifier.
+     */
+    private final @NotNull Map<@NotNull String, @NotNull List<@NotNull Class<?>>> multiServices = new ConcurrentHashMap<>();
+
+    /**
      * The root container of the container hierarchy.
      */
     private final @Nullable ContainerRegistry rootContainer;
@@ -174,6 +179,75 @@ public class DefaultContainerImpl implements ContainerRegistry {
     }
 
     /**
+     * Register services in the container, that specify {@link Service#multiple()} = {@code true} in their descriptor.
+     * <p>
+     * The services will be registered with their unique identifier, as specified in {@link Service#id()}.
+     * <p>
+     * You can later look up these services using the {@link Container#getMany(String)} method.
+     *
+     * @param services the classes of the services to register
+     */
+    @Override
+    public void insert(@NotNull @ServiceLike Class<?> @NotNull ... services) {
+        // iterate over the services to insert
+        for (Class<?> service : services) {
+            // resolve the service descriptor of the service type
+            Service descriptor = resolveDescriptor(service);
+            // check if the service is allowed to be inserted
+            if (!descriptor.multiple())
+                throw new UnknownDependencyException(
+                    "Service " + service.getName() + " does not have multiple set to true"
+                );
+
+            // validate that the service has a unique identifier
+            String id = descriptor.id();
+            if (id.equals(Service.DEFAULT_ID))
+                throw new UnknownDependencyException(
+                    "Service " + service.getName() + " does not have a unique identifier"
+                );
+
+            // register the service in the container
+            multiServices.computeIfAbsent(id, key -> new ArrayList<>()).add(service);
+        }
+    }
+
+    /**
+     * Retrieve multiple instances from the container for the specified unique identifier.
+     *
+     * @param id the unique identifier, that the services are grouped by
+     * @param context the caller class that the container is being called from
+     * @return the list of instances of the desired dependency identifier
+     *
+     * @param <TServices> the base type of the services
+     */
+    @Override
+    public <TServices> @NotNull List<@NotNull TServices> getMany(@NotNull String id, @NotNull Class<?> context) {
+        List<TServices> services = new ArrayList<>();
+        // iterate over each service registered with the specified identifier
+        for (Class<?> service : multiServices.getOrDefault(id, new ArrayList<>())) {
+            // retrieve the instance of the service type
+            @SuppressWarnings("unchecked")
+            TServices instance = (TServices) get(service, context, null, true);
+            services.add(instance);
+        }
+        return services;
+    }
+
+    /**
+     * Retrieve multiple instances from the container for the specified unique identifier.
+     *
+     * @param id the unique identifier, that the services are grouped by
+     * @return the list of instances of the desired dependency identifier
+     *
+     * @param <TServices> the base type of the services
+     */
+    @Override
+    @SneakyThrows
+    public <TServices> @NotNull List<@NotNull TServices> getMany(@NotNull String id) {
+        return getMany(id, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+    }
+
+    /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
      * a dependency instance may be retrieved from the container cache, or a new instance is created.
      *
@@ -243,8 +317,37 @@ public class DefaultContainerImpl implements ContainerRegistry {
     public <TService, TProperties> @NotNull TService get(
         @NotNull Class<TService> type, @NotNull Class<?> context, @Nullable TProperties properties
     ) {
+        return get(type, context, properties, false);
+    }
+
+    /**
+     * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
+     * a dependency instance may be retrieved from the container cache, or a new instance is created.
+     *
+     * @param type the class type of the dependency
+     * @param context the caller class that the container is being called from
+     * @param properties the properties to create the instance with
+     * @param allowMultiple whether to allow services that specifies {@link Service#multiple()} = {@code true}
+     * @return the instance of the desired dependency type
+     *
+     * @param <TService> the type of the dependency
+     * @param <TProperties> the type of the properties to pass to the factory
+     *
+     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
+     *  does not have permission to access the dependency
+     */
+    public <TService, TProperties> @NotNull TService get(
+        @NotNull Class<TService> type, @NotNull Class<?> context, @Nullable TProperties properties,
+        boolean allowMultiple
+    ) {
         // resolve the service descriptor of the dependency type
         Service service = resolveDescriptor(type);
+
+        // validate that the service is not registered as multiple, if the caller does not allow it
+        if (service.multiple() && !allowMultiple)
+            throw new UnknownDependencyException(
+                "Service " + type.getName() + " is registered as multiple, use getMany instead"
+            );
 
         // resolve the dependency from the root container if it has a singleton scope
         ServiceScope scope = service.scope();

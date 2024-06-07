@@ -1,5 +1,7 @@
 package com.atlas.divine;
 
+import com.atlas.divine.descriptor.generic.Service;
+import com.atlas.divine.descriptor.generic.ServiceLike;
 import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.exception.UnknownDependencyException;
@@ -14,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -97,6 +100,33 @@ public class Container {
     public void removeProvider(@NotNull Class<? extends Annotation> annotation) {
         CallContext context = getContextContainer();
         context.getContainer().removeProvider(annotation);
+    }
+
+    /**
+     * Register services in the container, that specify {@link Service#multiple()} = {@code true} in their descriptor.
+     * <p>
+     * The services will be registered with their unique identifier, as specified in {@link Service#id()}.
+     * <p>
+     * You can later look up these services using the {@link Container#getMany(String)} method.
+     *
+     * @param services the classes of the services to register
+     */
+    public void insert(@NotNull @ServiceLike Class<?> @NotNull ... services) {
+        CallContext context = getContextContainer();
+        context.getContainer().insert(services);
+    }
+
+    /**
+     * Retrieve multiple instances from the container for the specified unique identifier.
+     *
+     * @param id the unique identifier, that the services are grouped by
+     * @return the list of instances of the desired dependency identifier
+     *
+     * @param <TServices> the base type of the services
+     */
+    public <TServices> @NotNull List<@NotNull TServices> getMany(@NotNull String id) {
+        CallContext context = getContextContainer();
+        return context.getContainer().getMany(id, context.getCaller());
     }
 
     /**
