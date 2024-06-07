@@ -23,6 +23,13 @@ public interface ContainerRegistry extends ContainerInstance {
     @NotNull ContainerRegistry of(@NotNull String name);
 
     /**
+     * Retrieve the root container registry of the container hierarchy.
+     *
+     * @return the global container registry
+     */
+    @NotNull ContainerRegistry ofGlobal();
+
+    /**
      * Retrieve the list of dependencies that are registered in the container hierarchy.
      *
      * @return the list of all dependencies in the container hierarchy

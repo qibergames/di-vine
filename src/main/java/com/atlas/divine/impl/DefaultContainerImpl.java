@@ -75,7 +75,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
     private final @NotNull Map<@NotNull String, @NotNull List<@NotNull Class<?>>> multiServices = new ConcurrentHashMap<>();
 
     /**
-     * The root container of the container hierarchy.
+     * The root container of the container hierarchy. It is {@code null} if {@code this} container is the root.
      */
     private final @Nullable ContainerRegistry rootContainer;
 
@@ -113,6 +113,16 @@ public class DefaultContainerImpl implements ContainerRegistry {
             containers.put(name, container);
         }
         return container;
+    }
+
+    /**
+     * Retrieve the root container registry of the container hierarchy.
+     *
+     * @return the global container registry
+     */
+    @Override
+    public @NotNull ContainerRegistry ofGlobal() {
+        return rootContainer != null ? rootContainer : this;
     }
 
     /**

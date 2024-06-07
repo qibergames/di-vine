@@ -50,6 +50,15 @@ public class Container {
     }
 
     /**
+     * Retrieve the root container registry of the container hierarchy.
+     *
+     * @return the global container registry
+     */
+    public @NotNull ContainerRegistry ofGlobal() {
+        return provider.globalContainer();
+    }
+
+    /**
      * Register a container instance in the container hierarchy for the specified context.
      *
      * @param context the context that the container will be registered for
