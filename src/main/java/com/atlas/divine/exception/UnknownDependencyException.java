@@ -9,7 +9,7 @@ public class UnknownDependencyException extends GenericServiceException {
     /**
      * Initialize a new instance of the {@link UnknownDependencyException} class.
      *
-     * @param message the message that describes the error.
+     * @param message the message that describes the error
      */
     public UnknownDependencyException(@NotNull String message) {
         super(message);
