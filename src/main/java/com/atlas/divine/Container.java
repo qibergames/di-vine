@@ -2,6 +2,8 @@ package com.atlas.divine;
 
 import com.atlas.divine.descriptor.generic.Service;
 import com.atlas.divine.descriptor.generic.ServiceLike;
+import com.atlas.divine.exception.InvalidServiceException;
+import com.atlas.divine.exception.ServiceInitializationException;
 import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.exception.UnknownDependencyException;
@@ -95,6 +97,8 @@ public class Container {
      *
      * @param annotation the custom annotation that will be registered
      * @param provider the implementation provider that will be called when the annotation is present
+     *
+     * @throws InvalidServiceException if the annotation does not have a RUNTIME retention
      */
     public void addProvider(@NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?> provider) {
         CallContext context = getContextContainer();
@@ -119,6 +123,8 @@ public class Container {
      * You can later look up these services using the {@link Container#getMany(String)} method.
      *
      * @param services the classes of the services to register
+     *
+     * @throws InvalidServiceException if the service does not specify multiple correctly, or the service is invalid
      */
     public void insert(@NotNull @ServiceLike Class<?> @NotNull ... services) {
         CallContext context = getContextContainer();
@@ -132,6 +138,9 @@ public class Container {
      * @return the list of instances of the desired dependency identifier
      *
      * @param <TServices> the base type of the services
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     public <TServices> @NotNull List<@NotNull TServices> getMany(@NotNull String id) {
         CallContext context = getContextContainer();
@@ -146,8 +155,8 @@ public class Container {
      * @return the instance of the desired dependency type
      * @param <T> the type of the dependency
      *
-     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
-     * does not have permission to access the dependency
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     public @NotNull <T> T get(@NotNull Class<T> type) {
         CallContext context = getContextContainer();
@@ -165,8 +174,8 @@ public class Container {
      * @param <TService> the type of the dependency
      * @param <TProperties> the type of the properties to pass to the factory
      *
-     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
-     * does not have permission to access the dependency
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     public @NotNull <TService, TProperties> TService get(
         @NotNull Class<TService> type, @Nullable TProperties properties
@@ -185,6 +194,9 @@ public class Container {
      *
      * @param <TService> the type of the dependency
      * @param <TImplementation> the type of the implementation
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     public <TService, TImplementation extends TService> @NotNull TService implement(
         @NotNull Class<TService> type, @NotNull Class<TImplementation> implementationType

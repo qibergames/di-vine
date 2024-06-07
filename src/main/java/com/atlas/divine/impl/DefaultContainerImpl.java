@@ -1,11 +1,11 @@
 package com.atlas.divine.impl;
 
 import com.atlas.divine.*;
+import com.atlas.divine.exception.*;
 import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.tree.cache.Dependency;
 import com.atlas.divine.descriptor.generic.*;
-import com.atlas.divine.exception.UnknownDependencyException;
 import com.atlas.divine.runtime.lifecycle.AfterInitialized;
 import com.atlas.divine.runtime.lifecycle.BeforeTerminate;
 import com.atlas.divine.descriptor.property.PropertyProvider;
@@ -18,7 +18,6 @@ import com.atlas.divine.descriptor.property.NoPropertiesProvider;
 import com.atlas.divine.tree.ContainerRegistry;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -165,6 +164,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param annotation the custom annotation that will be registered
      * @param provider the implementation provider that will be called when the annotation is present
+     *
+     * @throws InvalidServiceException if the annotation does not have a RUNTIME retention
      */
     @Override
     public void addProvider(
@@ -172,7 +173,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
     ) {
         Retention retention = annotation.getAnnotation(Retention.class);
         if (retention == null || retention.value() != RetentionPolicy.RUNTIME)
-            throw new UnknownDependencyException(
+            throw new InvalidServiceException(
                 "Annotation " + annotation.getName() + " must have a RUNTIME retention"
             );
         providers.put(annotation, provider);
@@ -196,6 +197,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * You can later look up these services using the {@link Container#getMany(String)} method.
      *
      * @param services the classes of the services to register
+     *
+     * @throws InvalidServiceException if the service does not specify multiple correctly, or the service is invalid
      */
     @Override
     public void insert(@NotNull @ServiceLike Class<?> @NotNull ... services) {
@@ -205,14 +208,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
             Service descriptor = resolveDescriptor(service);
             // check if the service is allowed to be inserted
             if (!descriptor.multiple())
-                throw new UnknownDependencyException(
+                throw new InvalidServiceException(
                     "Service " + service.getName() + " does not have multiple set to true"
                 );
 
             // validate that the service has a unique identifier
             String id = descriptor.id();
             if (id.equals(Service.DEFAULT_ID))
-                throw new UnknownDependencyException(
+                throw new InvalidServiceException(
                     "Service " + service.getName() + " does not have a unique identifier"
                 );
 
@@ -229,6 +232,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @return the list of instances of the desired dependency identifier
      *
      * @param <TServices> the base type of the services
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
     public <TServices> @NotNull List<@NotNull TServices> getMany(@NotNull String id, @NotNull Class<?> context) {
@@ -250,11 +256,17 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @return the list of instances of the desired dependency identifier
      *
      * @param <TServices> the base type of the services
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
-    @SneakyThrows
     public <TServices> @NotNull List<@NotNull TServices> getMany(@NotNull String id) {
-        return getMany(id, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+        try {
+            return getMany(id, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+        } catch (ClassNotFoundException e) {
+            return getMany(id, Container.class);
+        }
     }
 
     /**
@@ -264,13 +276,16 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param type the class type of the dependency
      * @return the instance of the desired dependency type
      *
-     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
-     * does not have permission to access the dependency
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
-    @SneakyThrows
     public <T> @NotNull T get(@NotNull Class<T> type) {
-        return get(type, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+        try {
+            return get(type, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+        } catch (ClassNotFoundException e) {
+            return get(type, Container.class);
+        }
     }
 
     /**
@@ -281,8 +296,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param context the caller class that the container is being called from
      * @return the instance of the desired dependency type
      *
-     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
-     * does not have permission to access the dependency
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
     public <T> @NotNull T get(@NotNull Class<T> type, @NotNull Class<?> context) {
@@ -297,17 +312,20 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param properties the properties to create the instance with
      * @return the instance of the desired dependency type
      *
-     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
-     * does not have permission to access the dependency
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
-    @SneakyThrows
     public <TService, TProperties> @NotNull TService get(
         @NotNull Class<TService> type, @Nullable TProperties properties
     ) {
-        return get(type, Security.getCallerClass(Thread.currentThread().getStackTrace()), properties);
+        try {
+            return get(type, Security.getCallerClass(Thread.currentThread().getStackTrace()), properties);
+        } catch (ClassNotFoundException e) {
+            return get(type, Container.class, properties);
+        }
     }
-
+ 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
      * a dependency instance may be retrieved from the container cache, or a new instance is created.
@@ -320,8 +338,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <TService> the type of the dependency
      * @param <TProperties> the type of the properties to pass to the factory
      *
-     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
-     *  does not have permission to access the dependency
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
     public <TService, TProperties> @NotNull TService get(
@@ -343,8 +361,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <TService> the type of the dependency
      * @param <TProperties> the type of the properties to pass to the factory
      *
-     * @throws UnknownDependencyException if the dependency is not found, invalid, or the caller context
-     *  does not have permission to access the dependency
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     public <TService, TProperties> @NotNull TService get(
         @NotNull Class<TService> type, @NotNull Class<?> context, @Nullable TProperties properties,
@@ -355,7 +373,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
         // validate that the service is not registered as multiple, if the caller does not allow it
         if (service.multiple() && !allowMultiple)
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Service " + type.getName() + " is registered as multiple, use getMany instead"
             );
 
@@ -388,6 +406,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param <TService> the type of the dependency
      * @param <TImplementation> the type of the implementation
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
     public <TService, TImplementation extends TService> @NotNull TService implement(
@@ -404,26 +425,28 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param type the class type of the dependency
      * @return the service descriptor of the dependency type
      * @param <T> the type of the dependency
+     *
+     * @throws InvalidServiceException if the dependency type is not a service or the type cannot be a service
      */
-    private <T> @NotNull Service resolveDescriptor(@NotNull Class<T> type) {
+    private <T> @NotNull Service resolveDescriptor(@NotNull Class<T> type) throws InvalidServiceException {
         // validate that the service type annotates the service descriptor annotation
         Service service = type.getAnnotation(Service.class);
         if (service == null)
-            throw new UnknownDependencyException("Class " + type.getName() + " is not a service");
+            throw new InvalidServiceException("Class " + type.getName() + " is not a service");
 
         // make sure not to use annotation types for dependencies
         if (type.isAnnotation())
-            throw new UnknownDependencyException("Annotation type " + type.getName() + " cannot be a service");
+            throw new InvalidServiceException("Annotation type " + type.getName() + " cannot be a service");
 
         // validate that the service type has a factory specified if it is an enum
         if (type.isEnum() && service.factory() == NoFactory.class) {
             if (service.scope() == ServiceScope.TRANSIENT)
-                throw new UnknownDependencyException(
+                throw new InvalidServiceException(
                     "Transient enum service type " + type.getName() + " must have a factory specified"
                 );
 
             if (!has(type))
-                throw new UnknownDependencyException(
+                throw new InvalidServiceException(
                     "Enum service type " + type.getName() + " must have a factory specified in the service " +
                     "descriptor, or it must be already initialized in the container"
                 );
@@ -434,7 +457,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             type.isInterface() && service.factory() == NoFactory.class &&
             service.implementation() == NoImplementation.class && !has(type)
         )
-            throw new UnknownDependencyException(
+            throw new InvalidServiceException(
                 "Interface service type " + type.getName() + " must have a factory or an implementation specified in " +
                 "the service descriptor, or it must be already initialized in the container"
             );
@@ -453,6 +476,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param <TService> the type of the dependency
      * @param <TProperties> the type of the properties to pass to the factory
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     private <TService, TProperties> @NotNull TService getCachedOrCreate(
         @NotNull Class<TService> type, @NotNull Service service, @NotNull Class<?> context,
@@ -481,6 +507,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param <TService> the type of the dependency
      * @param <TProperties> the type of the properties to pass to the factory
+     *
+     * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @SuppressWarnings("unchecked")
     private <TService, TProperties> TService createInstance(
@@ -501,7 +529,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // use the implementation of the service, if it is specified
         else if (implementation != NoImplementation.class) {
             if (!type.isAssignableFrom(implementation))
-                throw new UnknownDependencyException(
+                throw new InvalidServiceException(
                     "Service " + service + " implementation " + implementation.getName() +
                     " does not implement the service type " + type.getName()
                 );
@@ -533,9 +561,12 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param service the service instance to handle
      * @param type the class type of the service
      * @param <TService> the type of the service
+     *
+     * @throws ServiceRuntimeException if an error occurs while invoking the service initialization method
      */
-    @SneakyThrows
-    private <TService> void handleServiceInit(@NotNull TService service, @NotNull Class<TService> type) {
+    private <TService> void handleServiceInit(
+        @NotNull TService service, @NotNull Class<TService> type
+    ) throws ServiceRuntimeException {
         // iterate over each method of the service class
         for (Method method : type.getDeclaredMethods()) {
             // skip methods that are not annotated with @AfterInitialized
@@ -546,7 +577,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
             method.setAccessible(true);
 
             // invoke the method on the service instance
-            method.invoke(service);
+            try {
+                method.invoke(service);
+            } catch (Exception e) {
+                throw new ServiceRuntimeException(
+                    "Error whilst invoking initialization method `" + method.getName() + "` of service " +
+                    type.getName(), e
+                );
+            }
         }
     }
 
@@ -579,15 +617,19 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param service the service descriptor of the dependency
      * @param properties the specified properties to be passed to the factory
      * @param <TProperties> the type of the properties that will be passed
+     *
+     * @throws InvalidServiceAccessException if the service is being accessed with invalid properties
      */
-    private <TProperties> void validateProperties(@NotNull Service service, @Nullable TProperties properties) {
+    private <TProperties> void validateProperties(
+        @NotNull Service service, @Nullable TProperties properties
+    ) throws InvalidServiceException {
         Class<? extends Factory<?, ?>> factoryType = service.factory();
 
         // return if the service has no factory specified
         if (factoryType == NoFactory.class) {
             // check if the service did not specify a factory, but factory properties were provided
             if (properties != null)
-                throw new UnknownDependencyException(
+                throw new InvalidServiceAccessException(
                     "Service " + service + " does not have a factory, but factory properties were provided: " +
                     properties
                 );
@@ -602,7 +644,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         if (propertiesType == NoProperties.class) {
             // check if the service factory required no properties, but properties were specified
             if (properties != null)
-                throw new UnknownDependencyException(
+                throw new InvalidServiceAccessException(
                     "Service " + service + " factory " + factoryType.getName() +
                     " does not require properties, but were provided: " + properties
                 );
@@ -612,14 +654,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
         // check if the service specified a factory, but no factory properties were provided
         if (properties == null)
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Service " + service + " factory " + factoryType.getName() +
                 " requires properties, but none were provided"
             );
 
         // check if the specified properties does not match the required type defined in the service factory
         if (!propertiesType.isAssignableFrom(properties.getClass()))
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Service " + service + " factory " + factoryType.getName() + " requires properties of type " +
                 propertiesType + ", but were given " + properties.getClass() + " of value " + properties
             );
@@ -630,12 +672,16 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param factoryType the factory type of the service descriptor
      * @return the generic properties type of the factory
+     *
+     * @throws InvalidServiceAccessException if the factory type is invalid or the properties type cannot be resolved
      */
-    private @NotNull Class<?> getFactoryPropertiesType(@NotNull Class<? extends Factory<?, ?>> factoryType) {
+    private @NotNull Class<?> getFactoryPropertiesType(
+        @NotNull Class<? extends Factory<?, ?>> factoryType
+    ) throws InvalidServiceAccessException {
         // resolve the implementing interfaces of the factory type
         Type[] genericInterfaces = factoryType.getGenericInterfaces();
         if (genericInterfaces.length == 0)
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Factory " + factoryType.getName() + " requires generic types: <TService, TProperties>, but found none"
             );
 
@@ -655,15 +701,17 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param factoryType the type of the factory
      * @param genericInterface the factory interface of the factory implementation type
      * @return the generic types of the factory interface
+     *
+     * @throws InvalidServiceAccessException if the factory type is invalid or the generic types cannot be resolved
      */
     private @NotNull Type @NotNull [] getGenericTypes(
         @NotNull Class<? extends Factory<?, ?>> factoryType, Type genericInterface
-    ) {
+    ) throws InvalidServiceAccessException {
         // check if the implemented factory type is not a parameterized type, however, this should never happen
         Type[] actualTypeArguments = getActualTypes(factoryType, genericInterface);
         // validate that the interface has two generic types: TService and TProperties, however, this should never happen
         if (actualTypeArguments.length != 2)
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Factory " + factoryType + " requires one actual type argument for TProperties, but found: " +
                 actualTypeArguments.length
             );
@@ -677,13 +725,15 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param factoryType the type of the factory
      * @param genericInterface the factory interface of the factory implementation type
      * @return the actual generic types of the factory interface
+     *
+     * @throws InvalidServiceAccessException if the factory type is invalid or the generic types cannot be resolved
      */
     private @NotNull Type @NotNull [] getActualTypes(
         @NotNull Class<? extends Factory<?, ?>> factoryType, Type genericInterface
-    ) {
+    ) throws InvalidServiceAccessException {
         // check if the implemented factory type is not a parameterized type, however, this should never happen
         if (!(genericInterface instanceof ParameterizedType))
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Factory " + factoryType + " requires a parameterized type for TProperties, but found: " +
                 genericInterface
             );
@@ -699,7 +749,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @return the modified dependency value
      * @param <T> the type of the dependency value
      */
-    private <T> T applyHooks(@NotNull T value, @NotNull Service service) {
+    private <T> T applyHooks(@NotNull T value, @NotNull Service service) throws ServiceInitializationException {
         // loop through the registered dependency creation hooks
         for (Map.Entry<String, ContainerHook> entry : hooks.entrySet()) {
             // apply the hook for the value
@@ -708,7 +758,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
                 T result = (T) entry.getValue().onDependencyCreated(value, service);
                 value = result;
             } catch (Exception e) {
-                throw new IllegalStateException(
+                throw new ServiceInitializationException(
                     "Hook " + entry.getKey() + " returned an invalid value for service " + value.getClass().getName()
                 );
             }
@@ -725,9 +775,10 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param context the class that requested the dependency
      * @param <T> the type of the instance
      */
-    @SneakyThrows
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private <T> void injectFields(@NotNull Class<T> clazz, @NotNull T instance, @NotNull Class<?> context) {
+    private <T> void injectFields(
+        @NotNull Class<T> clazz, @NotNull T instance, @NotNull Class<?> context
+    ) throws ServiceInitializationException {
         // loop through the fields of the class
         for (Field field : clazz.getDeclaredFields()) {
             // resolve the injection descriptor of the field
@@ -750,13 +801,20 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
             // check if the injection descriptor has a token and properties specified at the same time
             if (hasToken && hasProperties)
-                throw new UnknownDependencyException(
+                throw new ServiceInitializationException(
                     "@Inject annotation cannot have a token and properties defined at the same time."
                 );
 
             // resolve the container by its token from the container
             if (hasToken) {
-                field.set(instance, get(inject.token()));
+                try {
+                    field.set(instance, get(inject.token()));
+                } catch (Exception e) {
+                    throw new ServiceInitializationException(
+                        "Error while injecting token " + inject.token() + " into field " + field.getName() +
+                        " of class " + clazz.getName(), e
+                    );
+                }
                 break;
             }
 
@@ -771,13 +829,20 @@ public class DefaultContainerImpl implements ContainerRegistry {
             if (inject.provider() != NoPropertiesProvider.class) {
                 // throw an exception if the field has both properties and a provider specified
                 if (properties != null)
-                    throw new UnknownDependencyException(
+                    throw new InvalidServiceException(
                         "Field " + field.getName() + " of class " + clazz.getName() +
                         " has both properties and a provider specified"
                     );
 
                 // create a new instance of the property provider and provide the properties for the factory
-                PropertyProvider provider = getConstructor(inject.provider()).newInstance();
+                PropertyProvider provider;
+                try {
+                    provider = getConstructor(inject.provider()).newInstance();
+                } catch (Exception e) {
+                    throw new ServiceInitializationException(
+                        "Error while creating a new instance of the property provider " + inject.provider(), e
+                    );
+                }
                 properties = provider.provide(resolveDescriptor(fieldType), fieldType, context);
             }
 
@@ -786,7 +851,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // check if the injection descriptor has an implementation specified
             if (hasImplementation) {
                 if (!fieldType.isAssignableFrom(implementation))
-                    throw new UnknownDependencyException(
+                    throw new ServiceInitializationException(
                         "Service field " + field + " implementation " + implementation.getName() +
                         " does not implement the service type " + fieldType.getName()
                     );
@@ -795,7 +860,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
             }
 
             // resolve and inject the dependency for the field
-            field.set(instance, get(dependencyType, context, properties));
+            try {
+                field.set(instance, get(dependencyType, context, properties));
+            } catch (Exception e) {
+                throw new ServiceInitializationException(
+                    "Error while injecting dependency " + dependencyType.getName() + " into field " + field.getName() +
+                    " of class " + clazz.getName(), e
+                );
+            }
         }
     }
 
@@ -806,8 +878,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param instance the instance of the service
      * @param <TService> the type of the service
      */
-    @SneakyThrows
-    private <TService> void injectProviders(@NotNull Class<TService> type, @NotNull TService instance) {
+    private <TService> void injectProviders(
+        @NotNull Class<TService> type, @NotNull TService instance
+    ) throws ServiceInitializationException {
         // iterate over each field of the service class
         for (Field field : type.getDeclaredFields()) {
             // iterate over each registered implementation provider
@@ -824,7 +897,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
                 Object provide = ((AnnotationProvider) entry.getValue()).provide(instance, this);
 
                 // inject the implementation of the service into the field
-                field.set(instance, provide);
+                try {
+                    field.set(instance, provide);
+                } catch (Exception e) {
+                    throw new ServiceInitializationException(
+                        "Error while injecting provider " + entry.getValue().getClass().getName() +
+                        " into field " + field.getName() + " of class " + type.getName(), e
+                    );
+                }
                 break;
             }
         }
@@ -837,9 +917,12 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param context the class context that requested the dependency
      * @return a new instance of the service type
      * @param <T> the type of the service
+     *
+     * @throws ServiceInitializationException if an error occurs while instantiating the service type
      */
-    @SneakyThrows
-    private <T> @NotNull T createInstanceWithDependencies(@NotNull Class<T> type, @NotNull Class<?> context) {
+    private <T> @NotNull T createInstanceWithDependencies(
+        @NotNull Class<T> type, @NotNull Class<?> context
+    ) throws ServiceInitializationException {
         // get the first constructor of the class
         Constructor<T> constructor = getConstructor(type);
 
@@ -860,7 +943,13 @@ public class DefaultContainerImpl implements ContainerRegistry {
         }
 
         // create the instance with the resolved service arguments
-        return constructor.newInstance(args);
+        try {
+            return constructor.newInstance(args);
+        } catch (Exception e) {
+            throw new ServiceInitializationException(
+                "Error while creating a new instance of service " + type.getName(), e
+            );
+        }
     }
 
     /**
@@ -869,12 +958,13 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param type the class type of the factory
      * @return the factory instance of the specified type
      * @param <TService> the service type of the factory
+     *
+     * @throws ServiceInitializationException if an error occurs while creating the factory instance
      */
-    @SneakyThrows
     @SuppressWarnings("unchecked")
     private <TService, TProperties> @Nullable Factory<TService, TProperties> createFactory(
         @NotNull Class<? extends Factory<?, ?>> type
-    ) {
+    ) throws ServiceInitializationException {
         // return null if the factory was not specified
         if (type == NoFactory.class)
             return null;
@@ -883,7 +973,13 @@ public class DefaultContainerImpl implements ContainerRegistry {
         Constructor<? extends Factory<?, ?>> constructor = getConstructor(type);
 
         // create a new instance of the factory
-        return (Factory<TService, TProperties>) constructor.newInstance();
+        try {
+            return (Factory<TService, TProperties>) constructor.newInstance();
+        } catch (Exception e) {
+            throw new ServiceInitializationException(
+                "Error while creating a new instance of factory " + type.getName(), e
+            );
+        }
     }
 
     /**
@@ -895,7 +991,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <T> the type of the class
      */
     @SuppressWarnings("unchecked")
-    private <T> Constructor<T> getConstructor(@NotNull Class<T> type) {
+    private <T> Constructor<T> getConstructor(@NotNull Class<T> type) throws InvalidServiceException {
         Constructor<T> constructor = null;
 
         // if the class has only one constructor, use it to create the instance
@@ -913,7 +1009,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             }
             // check if no constructor were indicated, for TypeDI to construct with
             if (constructor == null)
-                throw new IllegalStateException(
+                throw new InvalidServiceException(
                     "Class " + type.getName() + " has multiple constructors, but none of them is annotated with " +
                     "@ConstructWith, therefore TypeDI cannot decide, which one to use."
                 );
@@ -932,17 +1028,17 @@ public class DefaultContainerImpl implements ContainerRegistry {
      */
     private void checkAccess(
         @NotNull Class<?> dependency, @NotNull ServiceVisibility visibility, @NotNull Class<?> context
-    ) {
+    ) throws InvalidServiceAccessException {
         // check if the accessing context does not match the class the dependency was instantiated for
         if (visibility == ServiceVisibility.PRIVATE && !dependency.equals(context))
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Class " + context.getName() + " does not have permission to access private service " +
                 dependency.getName()
             );
 
         // check if the accessing context is not a subclass of the class the dependency was instantiated for
         else if (visibility == ServiceVisibility.PROTECTED && !dependency.isAssignableFrom(context))
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Class " + context.getName() + " does not have permission to access protected service " +
                 dependency.getName()
             );
@@ -952,7 +1048,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             visibility == ServiceVisibility.CONTEXT &&
             !dependency.getClassLoader().equals(context.getClassLoader())
         ) {
-            throw new UnknownDependencyException(
+            throw new InvalidServiceAccessException(
                 "Class " + context.getName() + " does not have permission to access local service " +
                 dependency.getName()
             );
@@ -964,6 +1060,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param token the unique identifier of the value
      * @return the value of the desired token
+     *
      * @throws UnknownDependencyException if the value is not found, invalid, or the caller context
      */
     @Override
@@ -986,9 +1083,12 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <T> the type of the dependency
      */
     @Override
-    @SneakyThrows
     public <T> void set(@NotNull Class<T> type, @NotNull T dependency) {
-        set(type, dependency, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+        try {
+            set(type, dependency, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+        } catch (ClassNotFoundException e) {
+            set(type, dependency, Container.class);
+        }
     }
 
     /**
@@ -997,13 +1097,15 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param type the class type of the dependency
      * @param dependency the new instance of the dependency
      * @param context the class that the dependency was instantiated for
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid, transient, or the access is denied
      */
     @Override
     public <T> void set(@NotNull Class<T> type, @NotNull T dependency, Class<?> context) {
         // validate that the service type annotates the service descriptor annotation
         Service service = type.getAnnotation(Service.class);
         if (service == null)
-            throw new UnknownDependencyException("Class " + type.getName() + " is not a service");
+            throw new InvalidServiceException("Class " + type.getName() + " is not a service");
 
         // use the root container to cache the singleton service
         ServiceScope scope = service.scope();
@@ -1012,7 +1114,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
         // do not set the instance of a transient service, as it is created every time it is accessed
         else if (scope == ServiceScope.TRANSIENT)
-            throw new IllegalStateException("Cannot set transient service " + type.getName() + " in the container");
+            throw new InvalidServiceException("Cannot set transient service " + type.getName() + " in the container");
 
         // validate that the caller class has access to the service type
         checkAccess(type, service.visibility(), context);
@@ -1097,10 +1199,19 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param methods the list of methods that should be called before the service is terminated
      * @param <TService> the type of the service
      */
-    @SneakyThrows
-    private <TService> void handleTerminate(@NotNull TService value, @NotNull List<Method> methods) {
-        for (Method method : methods)
-            method.invoke(value);
+    private <TService> void handleTerminate(
+        @NotNull TService value, @NotNull List<Method> methods
+    ) throws ServiceRuntimeException {
+        for (Method method : methods) {
+            try {
+                method.invoke(value);
+            } catch (Exception e) {
+                throw new ServiceRuntimeException(
+                    "Error whilst invoking termination method `" + method.getName() + "` of service " +
+                    value.getClass().getName(), e
+                );
+            }
+        }
     }
 
     /**
