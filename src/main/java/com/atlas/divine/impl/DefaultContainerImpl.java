@@ -74,6 +74,11 @@ public class DefaultContainerImpl implements ContainerRegistry {
     private final @NotNull Map<@NotNull String, @NotNull List<@NotNull Class<?>>> multiServices = new ConcurrentHashMap<>();
 
     /**
+     * The stack of classes that are currently being resolved in the container.
+     */
+    private final @NotNull ThreadLocal<Stack<Class<?>>> resolvingStack = ThreadLocal.withInitial(Stack::new);
+
+    /**
      * The root container of the container hierarchy. It is {@code null} if {@code this} container is the root.
      */
     private final @Nullable ContainerRegistry rootContainer;
@@ -383,6 +388,59 @@ public class DefaultContainerImpl implements ContainerRegistry {
         @NotNull Class<TService> type, @NotNull Class<?> context, @Nullable TProperties properties,
         boolean allowMultiple
     ) {
+        // get the stack of classes that are currently being resolved in the container
+        Stack<Class<?>> stack = resolvingStack.get();
+
+        // check if the requested dependency is already initialized in the dependency tree
+        if (stack.contains(type))
+            throw new CircularDependencyException(
+                "Circular dependency detected for service " + type.getName() + " in context " + context.getName()
+            );
+
+        // push the current class type to the stack
+        stack.push(type);
+
+        // resolve the dependency tree from the container
+        try {
+            return resolveDependency(type, context, properties, allowMultiple);
+        }
+        // re-throw generic service exceptions
+        catch (GenericServiceException e) {
+            throw e;
+        }
+        // convert all non-dependency-injector exceptions to a service initialization exception,
+        // as the user should only be aware of the known exceptions
+        catch (Exception e) {
+            throw new ServiceInitializationException(
+                "Error whilst initializing service " + type.getName() + " in context " + context.getName(), e
+            );
+        }
+        // finally clean up the stack
+        finally {
+            stack.pop();
+        }
+    }
+
+    /**
+     * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
+     * a dependency instance may be retrieved from the container cache, or a new instance is created.
+     *
+     * @param type the class type of the dependency
+     * @param context the caller class that the container is being called from
+     * @param properties the properties to create the instance with
+     * @param allowMultiple whether to allow services that specifies {@link Service#multiple()} = {@code true}
+     * @return the instance of the desired dependency type
+     *
+     * @param <TService> the type of the dependency
+     * @param <TProperties> the type of the properties to pass to the factory
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    public <TService, TProperties> @NotNull TService resolveDependency(
+        @NotNull Class<TService> type, @NotNull Class<?> context, @Nullable TProperties properties,
+        boolean allowMultiple
+    ) {
         // resolve the service descriptor of the dependency type
         Service service = resolveDescriptor(type, true);
 
@@ -572,6 +630,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         Factory<TService, TProperties> factory = createFactory(service.factory());
         if (factory != null)
             value = factory.create(service, type, context, properties);
+
         // use the implementation of the service, if it is specified
         else if (implementation != NoImplementation.class) {
             if (!type.isAssignableFrom(implementation))
@@ -626,7 +685,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // invoke the method on the service instance
             try {
                 method.invoke(service);
-            } catch (Exception e) {
+            } catch (InvocationTargetException | IllegalAccessException e) {
                 throw new ServiceRuntimeException(
                     "Error whilst invoking initialization method `" + method.getName() + "` of service " +
                     type.getName(), e
@@ -847,16 +906,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
             );
 
         // resolve the container by its token from the container
-        if (hasToken) {
-            try {
-                return get(inject.token());
-            } catch (Exception e) {
-                throw new ServiceInitializationException(
-                    "Error while injecting token " + inject.token() + " into " + injectionTarget.getName() + " " +
-                    fieldName + " of class " + targetClass.getName(), e
-                );
-            }
-        }
+        if (hasToken)
+            return get(inject.token());
 
         // resolve the properties of the dependency to be passed to the factory
         Object properties = null;
@@ -878,7 +929,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             PropertyProvider provider;
             try {
                 provider = getConstructor(inject.provider()).newInstance();
-            } catch (Exception e) {
+            } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
                 throw new ServiceInitializationException(
                     "Error while creating a new instance of the property provider " + inject.provider(), e
                 );
@@ -900,14 +951,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         }
 
         // resolve and inject the dependency for the field
-        try {
-            return get(dependencyType, context, properties);
-        } catch (Exception e) {
-            throw new ServiceInitializationException(
-                "Error while injecting dependency " + dependencyType.getName() + " into " + injectionTarget.getName() +
-                " " + fieldName + " of class " + targetClass.getName(), e
-            );
-        }
+        return get(dependencyType, context, properties);
     }
 
     /**
@@ -940,7 +984,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // try to inject the instance of the service into the field
             try {
                 field.set(instance, injection);
-            } catch (Exception e) {
+            } catch (IllegalAccessException e) {
                 throw new ServiceInitializationException(
                     "Error while injecting dependency " + injection.getClass().getName() + " into field " +
                     field.getName() + " of class " + clazz.getName(), e
@@ -1004,7 +1048,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // inject the implementation of the service into the field
             try {
                 field.set(instance, provide);
-            } catch (Exception e) {
+            } catch (IllegalAccessException e) {
                 throw new ServiceInitializationException(
                     "Error while injecting into field " + field.getName() + " of class " + type.getName(), e
                 );
@@ -1086,7 +1130,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // create the instance with the resolved service arguments
         try {
             return constructor.newInstance(args);
-        } catch (Exception e) {
+        } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
             throw new ServiceInitializationException(
                 "Error while creating a new instance of service " + type.getName(), e
             );
@@ -1116,7 +1160,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // create a new instance of the factory
         try {
             return (Factory<TService, TProperties>) constructor.newInstance();
-        } catch (Exception e) {
+        } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
             throw new ServiceInitializationException(
                 "Error while creating a new instance of factory " + type.getName(), e
             );
@@ -1348,7 +1392,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         for (Method method : methods) {
             try {
                 method.invoke(value);
-            } catch (Exception e) {
+            } catch (InvocationTargetException | IllegalAccessException e) {
                 throw new ServiceRuntimeException(
                     "Error whilst invoking termination method `" + method.getName() + "` of service " +
                     value.getClass().getName(), e
