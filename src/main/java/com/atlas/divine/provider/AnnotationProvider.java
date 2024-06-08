@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Represents a functional interface that provides an implementation for the specified interface.
  * <p>
- * The {@link #provide(Object, ContainerInstance)} method is called, to resolve the implementation of a service,
+ * The {@link #provide(Class, ContainerInstance)} method is called, to resolve the implementation of a service,
  * whenever its corresponding custom annotation is present on a field or constructor parameter.
  *
  * @param <TImplementation>
@@ -20,5 +20,5 @@ public interface AnnotationProvider<TImplementation> {
      * @param container the container instance that the implementation is being provided from
      * @return the implementation of the specified interface
      */
-    @NotNull TImplementation provide(@NotNull Object target, @NotNull ContainerInstance container);
+    @NotNull TImplementation provide(@NotNull Class<?> target, @NotNull ContainerInstance container);
 }

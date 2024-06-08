@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  * @see Container
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
+@Target({ ElementType.FIELD, ElementType.PARAMETER })
 public @interface Inject {
     /**
      * The placeholder string that indicates, that the injection descriptor does not intend to provide

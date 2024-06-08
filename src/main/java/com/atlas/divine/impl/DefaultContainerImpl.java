@@ -575,6 +575,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param service the service instance to handle
      * @param type the class type of the service
+     *
      * @param <TService> the type of the service
      *
      * @throws ServiceRuntimeException if an error occurs while invoking the service initialization method
@@ -609,6 +610,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param type the class type of the dependency
      * @return the list of methods that should be called before the service is terminated
+     *
      * @param <TService> the type of the dependency
      */
     private <TService> @NotNull List<Method> resolveTerminators(@NotNull Class<TService> type) {
@@ -631,6 +633,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param service the service descriptor of the dependency
      * @param properties the specified properties to be passed to the factory
+     *
      * @param <TProperties> the type of the properties that will be passed
      *
      * @throws InvalidServiceAccessException if the service is being accessed with invalid properties
@@ -720,7 +723,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws InvalidServiceAccessException if the factory type is invalid or the generic types cannot be resolved
      */
     private @NotNull Type @NotNull [] getGenericTypes(
-        @NotNull Class<? extends Factory<?, ?>> factoryType, Type genericInterface
+        @NotNull Class<? extends Factory<?, ?>> factoryType, @NotNull Type genericInterface
     ) throws InvalidServiceAccessException {
         // check if the implemented factory type is not a parameterized type, however, this should never happen
         Type[] actualTypeArguments = getActualTypes(factoryType, genericInterface);
@@ -744,7 +747,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws InvalidServiceAccessException if the factory type is invalid or the generic types cannot be resolved
      */
     private @NotNull Type @NotNull [] getActualTypes(
-        @NotNull Class<? extends Factory<?, ?>> factoryType, Type genericInterface
+        @NotNull Class<? extends Factory<?, ?>> factoryType, @NotNull Type genericInterface
     ) throws InvalidServiceAccessException {
         // check if the implemented factory type is not a parameterized type, however, this should never happen
         if (!(genericInterface instanceof ParameterizedType))
@@ -836,8 +839,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // throw an exception if the field has both properties and a provider specified
             if (properties != null)
                 throw new InvalidServiceException(
-                    "Field " + fieldName + " of class " + targetClass.getName() +
-                    " has both properties and a provider specified"
+                    "Injection target " + injectionTarget.getName() + " " + fieldName + " of class " +
+                    targetClass.getName() + " has both properties and a provider specified"
                 );
 
             // create a new instance of the property provider and provide the properties for the factory
@@ -858,8 +861,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
         if (hasImplementation) {
             if (!fieldType.isAssignableFrom(implementation))
                 throw new ServiceInitializationException(
-                    "Service field " + fieldName + " implementation " + implementation.getName() +
-                    " does not implement the service type " + fieldType.getName()
+                    "Service " + injectionTarget.getName() +  " " + fieldName + " implementation " +
+                    implementation.getName() + " does not implement the service type " + fieldType.getName()
                 );
             // use the implementation of the service, if it is specified
             dependencyType = implementation;
@@ -870,8 +873,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
             return get(dependencyType, context, properties);
         } catch (Exception e) {
             throw new ServiceInitializationException(
-                "Error while injecting dependency " + dependencyType.getName() + " into field " + fieldName +
-                " of class " + targetClass.getName(), e
+                "Error while injecting dependency " + dependencyType.getName() + " into " + injectionTarget.getName() +
+                " " + fieldName + " of class " + targetClass.getName(), e
             );
         }
     }
@@ -915,10 +918,41 @@ public class DefaultContainerImpl implements ContainerRegistry {
     }
 
     /**
+     * Provide an implementation for a service from a registered custom annotation.
+     *
+     * @param annotations the annotations of the field
+     * @param target the class that requested the dependency
+     * @return the implementation of the annotation
+     */
+    private @Nullable Object provideAnnotation(@NotNull Annotation @NotNull [] annotations, @NotNull Class<?> target) {
+        // iterate over the annotations of the field
+        for (Annotation annotation : annotations) {
+            // skip annotations that are not registered in the container
+            AnnotationProvider<?> provider = providers.get(annotation.annotationType());
+            if (provider == null)
+                continue;
+
+            // provide the implementation of the annotation
+            try {
+                return provider.provide(target, this);
+            } catch (Exception e) {
+                throw new ServiceInitializationException(
+                    "Error while providing annotation " + annotation.annotationType().getName() + " for " +
+                    target.getName(), e
+                );
+            }
+        }
+
+        // field does not have a custom annotation provider, return null
+        return null;
+    }
+
+    /**
      * Inject implementations for custom annotations into the specified service instance.
      *
      * @param type the class type of the service
      * @param instance the instance of the service
+     *
      * @param <TService> the type of the service
      */
     private <TService> void injectProviders(
@@ -926,29 +960,22 @@ public class DefaultContainerImpl implements ContainerRegistry {
     ) throws ServiceInitializationException {
         // iterate over each field of the service class
         for (Field field : type.getDeclaredFields()) {
-            // iterate over each registered implementation provider
-            for (Map.Entry<Class<? extends Annotation>, AnnotationProvider<?>> entry : providers.entrySet()) {
-                // skip the provider if the field is not annotated with the custom annotation
-                if (!field.isAnnotationPresent(entry.getKey()))
-                    continue;
+            // resolve the implementation of the service from the provider
+            Object provide = provideAnnotation(field.getAnnotations(), field.getType());
+            // skip the field if the provider did not provide an implementation
+            if (provide == null)
+                continue;
 
-                // make the field accessible for the dependency injector
-                field.setAccessible(true);
+            // make the field accessible for the dependency injector
+            field.setAccessible(true);
 
-                // resolve the implementation of the service
-                @SuppressWarnings("rawtypes")
-                Object provide = ((AnnotationProvider) entry.getValue()).provide(instance, this);
-
-                // inject the implementation of the service into the field
-                try {
-                    field.set(instance, provide);
-                } catch (Exception e) {
-                    throw new ServiceInitializationException(
-                        "Error while injecting provider " + entry.getValue().getClass().getName() +
-                        " into field " + field.getName() + " of class " + type.getName(), e
-                    );
-                }
-                break;
+            // inject the implementation of the service into the field
+            try {
+                field.set(instance, provide);
+            } catch (Exception e) {
+                throw new ServiceInitializationException(
+                    "Error while injecting into field " + field.getName() + " of class " + type.getName(), e
+                );
             }
         }
     }
@@ -972,17 +999,56 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // create the arguments of the constructor call
         Class<?>[] types = constructor.getParameterTypes();
         int parameterCount = constructor.getParameterCount();
+        // the call arguments are initially `null`, as we have no proper way of resolving non-service-based parameters
         Object[] args = new Object[parameterCount];
 
         // loop through the constructor parameters
         for (int i = 0; i < parameterCount; i++) {
-            // check if the parameter is not annotated with @Service
+            // retrieve the metadata of the constructor parameter
+            Parameter parameter = constructor.getParameters()[i];
             Class<?> paramType = types[i];
-            if (!paramType.isAnnotationPresent(Service.class))
-                continue;
+            String paramName = parameter.getName();
 
-            // get the dependency from the container
-            args[i] = get(paramType, context);
+            // try to resolve the annotation list of the constructor parameters
+            // sadly, this can fail, due to Java not properly handling this, such as returning an empty array
+            // for that reason, I'm sticking with this workaround, and warning developers of this issue
+            Annotation[] paramAnnotations = null;
+            try {
+                paramAnnotations = parameter.getDeclaredAnnotations();
+            } catch (IndexOutOfBoundsException ignored) {
+                System.err.println(
+                    "Java Reflection API was unable to resolve the parameter annotations of constructor " +
+                    constructor.getName() + " of class " + type.getName() + ". This can happen, when using " +
+                    "non static inner classes, and the parameter annotations are not available. This may change " +
+                    "the behaviour of the dependency injector, and may lead to unexpected results."
+                );
+            }
+
+            // try to fall back to the default service resolving, if the parameter annotations are not available
+            if (paramAnnotations == null) {
+                if (paramType.isAnnotationPresent(Service.class))
+                    args[i] = get(paramType, context);
+                continue;
+            }
+
+            // handle custom descriptor injection
+            Inject inject = parameter.getAnnotation(Inject.class);
+            if (inject != null) {
+                args[i] = createInjectionInstance(
+                    paramType, paramName, type, inject, context,
+                    InjectionTarget.CONSTRUCTOR_PARAMETER
+                );
+                continue;
+            }
+
+            // handle custom annotation injection
+            Object provide = provideAnnotation(paramAnnotations, paramType);
+            if (provide != null)
+                args[i] = provide;
+
+            // handle default service resolving
+            else if (paramType.isAnnotationPresent(Service.class))
+                args[i] = get(paramType, context);
         }
 
         // create the instance with the resolved service arguments
