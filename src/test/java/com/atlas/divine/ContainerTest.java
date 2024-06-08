@@ -1,5 +1,6 @@
 package com.atlas.divine;
 
+import com.atlas.divine.exception.InvalidServiceAccessException;
 import com.atlas.divine.exception.InvalidServiceException;
 import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.runtime.lifecycle.AfterInitialized;
@@ -389,6 +390,18 @@ class ContainerTest {
         assertEquals(418, service.test());
     }
 
-    // TODO add more cases, such as the implementation class does not implement the service interface,
-    //  or the implementation class is not a @Service, etc
+    @Service
+    static class MyNonPermittedService implements MyPermittingService {
+        @Override
+        public int test() {
+            return 1234;
+        }
+    }
+
+    @Test
+    public void test_non_permitted_implementation() {
+        assertThrows(InvalidServiceAccessException.class, () -> Container.implement(
+            MyPermittingService.class, MyNonPermittedService.class
+        ));
+    }
 }
