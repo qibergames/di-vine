@@ -52,8 +52,8 @@ class ContainerTest {
             private boolean set;
         }
 
-        ContainerRegistry foo = Container.of("foo");
-        ContainerRegistry bar = Container.of("bar");
+        ContainerRegistry foo = Container.ofGlobal("foo");
+        ContainerRegistry bar = Container.ofGlobal("bar");
 
         foo.get(MyService.class).set = true;
         assertTrue(bar.get(MyService.class).set);
@@ -66,8 +66,8 @@ class ContainerTest {
             private boolean set;
         }
 
-        ContainerRegistry foo = Container.of("foo");
-        ContainerRegistry bar = Container.of("bar");
+        ContainerRegistry foo = Container.ofGlobal("foo");
+        ContainerRegistry bar = Container.ofGlobal("bar");
 
         foo.get(MyService.class).set = true;
         assertFalse(bar.get(MyService.class).set);

@@ -29,7 +29,7 @@ public class ContainerExportTest {
     public void test_container_export() {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-        ContainerRegistry example = Container.of("example");
+        ContainerRegistry example = Container.ofGlobal("example");
         LocalService localService = example.get(LocalService.class);
         GlobalService globalService = example.get(GlobalService.class);
 
