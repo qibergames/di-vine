@@ -220,7 +220,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // iterate over the services to insert
         for (Class<?> service : services) {
             // resolve the service descriptor of the service type
-            Service descriptor = resolveDescriptor(service);
+            Service descriptor = resolveDescriptor(service, true);
             // check if the service is allowed to be inserted
             if (!descriptor.multiple())
                 throw new InvalidServiceException(
@@ -384,7 +384,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         boolean allowMultiple
     ) {
         // resolve the service descriptor of the dependency type
-        Service service = resolveDescriptor(type);
+        Service service = resolveDescriptor(type, true);
 
         // validate that the service is not registered as multiple, if the caller does not allow it
         if (service.multiple() && !allowMultiple)
@@ -429,7 +429,32 @@ public class DefaultContainerImpl implements ContainerRegistry {
     public <TService, TImplementation extends TService> @NotNull TService implement(
         @NotNull Class<TService> type, @NotNull Class<TImplementation> implementationType
     ) {
+        // check if the service does not allow the implementation type to be associated as
+        checkPermit: {
+            // resolve the descriptor of the target class. validation is disabled here, as we don't need to check
+            // if the target type can be initialized, because the implementation is the initializer
+            Service descriptor = resolveDescriptor(type, false);
+            @NotNull @ServiceLike Class<?>[] permits = descriptor.permits();
+
+            // stop checking, if the descriptor allows any types to implement the service
+            if (permits.length == 0)
+                break checkPermit;
+
+            // stop checking, if the descriptor allows the implementation type to implement the service
+            for (Class<?> permit : permits) {
+                if (permit.equals(implementationType))
+                    break checkPermit;
+            }
+
+            // descriptor disallows the implementation, throw an exception
+            throw new InvalidServiceAccessException(
+                "Service " + type.getName() + " does not permit implementation " + implementationType.getName()
+            );
+        }
+
+        // instantiate the implementation type
         TImplementation implementation = Container.get(implementationType);
+        // associate the target type with the implementation instance
         Container.set(type, implementation);
         return implementation;
     }
@@ -443,11 +468,17 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @throws InvalidServiceException if the dependency type is not a service or the type cannot be a service
      */
-    private <T> @NotNull Service resolveDescriptor(@NotNull Class<T> type) throws InvalidServiceException {
+    private <T> @NotNull Service resolveDescriptor(
+        @NotNull Class<T> type, boolean validate
+    ) throws InvalidServiceException {
         // validate that the service type annotates the service descriptor annotation
         Service service = type.getAnnotation(Service.class);
         if (service == null)
             throw new InvalidServiceException("Class " + type.getName() + " is not a service");
+
+        // return if the parent context does not require service descriptor validation
+        if (!validate)
+            return service;
 
         // make sure not to use annotation types for dependencies
         if (type.isAnnotation())
@@ -852,7 +883,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
                     "Error while creating a new instance of the property provider " + inject.provider(), e
                 );
             }
-            properties = provider.provide(resolveDescriptor(fieldType), fieldType, context);
+            properties = provider.provide(resolveDescriptor(fieldType, true), fieldType, context);
         }
 
         Class<?> dependencyType = fieldType;
@@ -885,6 +916,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param clazz the class of the instance
      * @param instance the instance to inject the fields of
      * @param context the class that requested the dependency
+     *
      * @param <T> the type of the instance
      */
     private <T> void injectFields(
@@ -1097,6 +1129,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param type the class of the type
      * @return the constructor of the class type
+     *
      * @param <T> the type of the class
      */
     @SuppressWarnings("unchecked")
@@ -1107,6 +1140,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         Constructor<T>[] constructors = (Constructor<T>[]) type.getDeclaredConstructors();
         if (constructors.length == 1)
             constructor = constructors[0];
+
         // if the class has multiple constructors, use the one annotated with @ConstructWith
         else {
             // check for each constructor declared by the service's class
