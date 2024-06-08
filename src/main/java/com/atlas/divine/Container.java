@@ -10,7 +10,6 @@ import com.atlas.divine.exception.UnknownDependencyException;
 import com.atlas.divine.tree.ContainerProvider;
 import com.atlas.divine.tree.ContainerRegistry;
 import com.atlas.divine.impl.ClassLoaderContainerProvider;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -41,14 +40,30 @@ public class Container {
     private @NotNull ContainerProvider provider = new ClassLoaderContainerProvider();
 
     /**
-     * Retrieve a container registry by its specific name.
+     * Retrieve a container registry by its specific name. The parent container is the root container of the hierarchy.
+     * The retrieved container will be a child of the global container.
+     * <p>
      * If the parent registry already contains a registry with the specified name, it will be returned.
      * Otherwise, a new registry will be created and registered in the parent registry.
      *
      * @param name the name of the registry
      * @return the container registry with the specified name
      */
-    public @NotNull ContainerRegistry of(@NotNull String name) {
+    public @NotNull ContainerRegistry ofGlobal(@NotNull String name) {
+        return ofGlobal().of(name);
+    }
+
+    /**
+     * Retrieve a container registry by its specific name. The parent container is resolved from the current context.
+     * The retrieved container will be a child of the container that is associated with the current context.
+     * <p>
+     * If the parent registry already contains a registry with the specified name, it will be returned.
+     * Otherwise, a new registry will be created and registered in the parent registry.
+     *
+     * @param name the name of the registry
+     * @return the container registry with the specified name
+     */
+    public @NotNull ContainerRegistry ofContext(@NotNull String name) {
         CallContext context = getContextContainer();
         return context.getContainer().of(name);
     }
@@ -60,6 +75,15 @@ public class Container {
      */
     public @NotNull ContainerRegistry ofGlobal() {
         return provider.globalContainer();
+    }
+
+    /*
+     * Retrieve the container registry of the current context.
+     *
+     * @return the container registry of the current context
+     */
+    public @NotNull ContainerRegistry ofContext() {
+        return getContextContainer().getContainer();
     }
 
     /**
