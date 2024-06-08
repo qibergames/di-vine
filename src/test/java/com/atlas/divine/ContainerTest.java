@@ -370,6 +370,25 @@ class ContainerTest {
         assertEquals("Hello, World", service.value);
     }
 
+    @Service(permits = MyPermittedService.class)
+    interface MyPermittingService {
+        int test();
+    }
+
+    @Service
+    static class MyPermittedService implements MyPermittingService {
+        @Override
+        public int test() {
+            return 418;
+        }
+    }
+
+    @Test
+    public void test_service_implementation_permit() {
+        MyPermittingService service = Container.implement(MyPermittingService.class, MyPermittedService.class);
+        assertEquals(418, service.test());
+    }
+
     // TODO add more cases, such as the implementation class does not implement the service interface,
     //  or the implementation class is not a @Service, etc
 }
