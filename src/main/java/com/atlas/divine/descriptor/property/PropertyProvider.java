@@ -19,5 +19,5 @@ public interface PropertyProvider<TService, TProperties> {
      * @param context the caller class that the container is being called from
      * @return the properties to be passed to the factory of a service
      */
-    TProperties provide(@NotNull Service descriptor, @NotNull Class<TService> type, @NotNull Class<?> context);
+    @NotNull TProperties provide(@NotNull Service descriptor, @NotNull Class<TService> type, @NotNull Class<?> context);
 }
