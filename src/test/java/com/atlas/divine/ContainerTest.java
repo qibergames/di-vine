@@ -301,7 +301,7 @@ class ContainerTest {
 
     static class MyProvider implements AnnotationProvider<MyCustomServiceImpl> {
         @Override
-        public @NotNull MyCustomServiceImpl provide(@NotNull Object target, @NotNull ContainerInstance container) {
+        public @NotNull MyCustomServiceImpl provide(@NotNull Class<?> target, @NotNull ContainerInstance container) {
             return new MyCustomServiceImpl();
         }
     }
@@ -351,6 +351,23 @@ class ContainerTest {
         assertEquals(2, services.size());
         assertEquals(100, services.get(0).get());
         assertEquals(200, services.get(1).get());
+    }
+
+    @Service
+    static class MyParamService {
+        private final String value;
+
+        public MyParamService(@Inject(token = "MY_VALUE") String value) {
+            this.value = value;
+        }
+    }
+
+    @Test
+    public void test_constructor_token_injection() {
+        Container.set("MY_VALUE", "Hello, World");
+
+        MyParamService service = Container.get(MyParamService.class);
+        assertEquals("Hello, World", service.value);
     }
 
     // TODO add more cases, such as the implementation class does not implement the service interface,
