@@ -1,5 +1,6 @@
 package com.atlas.divine;
 
+import com.atlas.divine.exception.CircularDependencyException;
 import com.atlas.divine.exception.InvalidServiceAccessException;
 import com.atlas.divine.exception.InvalidServiceException;
 import com.atlas.divine.provider.AnnotationProvider;
@@ -403,5 +404,22 @@ class ContainerTest {
         assertThrows(InvalidServiceAccessException.class, () -> Container.implement(
             MyPermittingService.class, MyNonPermittedService.class
         ));
+    }
+
+    @Service
+    static class ServiceA {
+        @Inject
+        ServiceB serviceB;
+    }
+
+    @Service
+    static class ServiceB {
+        @Inject
+        ServiceA serviceA;
+    }
+
+    @Test
+    public void test_circular_dependency_reference() {
+        assertThrows(CircularDependencyException.class, () -> Container.get(ServiceA.class));
     }
 }
