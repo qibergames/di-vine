@@ -211,7 +211,7 @@ class ContainerTest {
 
     static class MyPropertyProvider implements PropertyProvider<MyDynamicServiceComponent, String> {
         @Override
-        public String provide(
+        public @NotNull String provide(
             @NotNull Service descriptor, @NotNull Class<MyDynamicServiceComponent> type, @NotNull Class<?> context
         ) {
             return "second";

@@ -783,6 +783,100 @@ public class DefaultContainerImpl implements ContainerRegistry {
     }
 
     /**
+     * Create an instance of a service to be injected.
+     *
+     * @param fieldType the type of the field to be injected to
+     * @param fieldName the name of the field to be injected to
+     * @param targetClass the class that requested the dependency
+     * @param inject the injection descriptor of the field
+     * @param context the class that the dependency is being called from
+     *
+     * @return the created instance of the service to be injected
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private @NotNull Object createInjectionInstance(
+        @NotNull Class<?> fieldType, @NotNull String fieldName, @NotNull Class<?> targetClass, @NotNull Inject inject,
+        @NotNull Class<?> context, @NotNull InjectionTarget injectionTarget
+    ) {
+        // retrieve the implementation type of the service, if it is specified
+        Class<?> implementation = inject.implementation();
+
+        // resolve the properties of the injection descriptor
+        boolean hasToken = !inject.token().equals(Inject.NO_TOKEN);
+        boolean hasProperties = !inject.properties().equals(Inject.NO_PROPERTIES);
+        boolean hasImplementation = implementation != NoImplementation.class;
+
+        // check if the injection descriptor has a token and properties specified at the same time
+        if (hasToken && hasProperties)
+            throw new ServiceInitializationException(
+                "@Inject annotation cannot have a token and properties defined at the same time."
+            );
+
+        // resolve the container by its token from the container
+        if (hasToken) {
+            try {
+                return get(inject.token());
+            } catch (Exception e) {
+                throw new ServiceInitializationException(
+                    "Error while injecting token " + inject.token() + " into " + injectionTarget.getName() + " " +
+                    fieldName + " of class " + targetClass.getName(), e
+                );
+            }
+        }
+
+        // resolve the properties of the dependency to be passed to the factory
+        Object properties = null;
+
+        // check if the injection descriptor has string properties specified
+        if (hasProperties)
+            properties = inject.properties();
+
+        // check if the injection descriptor has a property provider specified
+        if (inject.provider() != NoPropertiesProvider.class) {
+            // throw an exception if the field has both properties and a provider specified
+            if (properties != null)
+                throw new InvalidServiceException(
+                    "Field " + fieldName + " of class " + targetClass.getName() +
+                    " has both properties and a provider specified"
+                );
+
+            // create a new instance of the property provider and provide the properties for the factory
+            PropertyProvider provider;
+            try {
+                provider = getConstructor(inject.provider()).newInstance();
+            } catch (Exception e) {
+                throw new ServiceInitializationException(
+                    "Error while creating a new instance of the property provider " + inject.provider(), e
+                );
+            }
+            properties = provider.provide(resolveDescriptor(fieldType), fieldType, context);
+        }
+
+        Class<?> dependencyType = fieldType;
+
+        // check if the injection descriptor has an implementation specified
+        if (hasImplementation) {
+            if (!fieldType.isAssignableFrom(implementation))
+                throw new ServiceInitializationException(
+                    "Service field " + fieldName + " implementation " + implementation.getName() +
+                    " does not implement the service type " + fieldType.getName()
+                );
+            // use the implementation of the service, if it is specified
+            dependencyType = implementation;
+        }
+
+        // resolve and inject the dependency for the field
+        try {
+            return get(dependencyType, context, properties);
+        } catch (Exception e) {
+            throw new ServiceInitializationException(
+                "Error while injecting dependency " + dependencyType.getName() + " into field " + fieldName +
+                " of class " + targetClass.getName(), e
+            );
+        }
+    }
+
+    /**
      * Inject the fields of the specified instance.
      *
      * @param clazz the class of the instance
@@ -790,7 +884,6 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param context the class that requested the dependency
      * @param <T> the type of the instance
      */
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     private <T> void injectFields(
         @NotNull Class<T> clazz, @NotNull T instance, @NotNull Class<?> context
     ) throws ServiceInitializationException {
@@ -804,83 +897,18 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // make sure the field is accessible for the dependency injector
             field.setAccessible(true);
 
-            // retrieve the type metadata of the field
-            Class<?> fieldType = field.getType();
-            // retrieve the implementation type of the service, if it is specified
-            Class<?> implementation = inject.implementation();
+            // create an instance of the service to be injected
+            Object injection = createInjectionInstance(
+                field.getType(), field.getName(), clazz, inject, context, InjectionTarget.CLASS_FIELD
+            );
 
-            // resolve the properties of the injection descriptor
-            boolean hasToken = !inject.token().equals(Inject.NO_TOKEN);
-            boolean hasProperties = !inject.properties().equals(Inject.NO_PROPERTIES);
-            boolean hasImplementation = implementation != NoImplementation.class;
-
-            // check if the injection descriptor has a token and properties specified at the same time
-            if (hasToken && hasProperties)
-                throw new ServiceInitializationException(
-                    "@Inject annotation cannot have a token and properties defined at the same time."
-                );
-
-            // resolve the container by its token from the container
-            if (hasToken) {
-                try {
-                    field.set(instance, get(inject.token()));
-                } catch (Exception e) {
-                    throw new ServiceInitializationException(
-                        "Error while injecting token " + inject.token() + " into field " + field.getName() +
-                        " of class " + clazz.getName(), e
-                    );
-                }
-                break;
-            }
-
-            // resolve the properties of the dependency to be passed to the factory
-            Object properties = null;
-
-            // check if the injection descriptor has string properties specified
-            if (hasProperties)
-                properties = inject.properties();
-
-            // check if the injection descriptor has a property provider specified
-            if (inject.provider() != NoPropertiesProvider.class) {
-                // throw an exception if the field has both properties and a provider specified
-                if (properties != null)
-                    throw new InvalidServiceException(
-                        "Field " + field.getName() + " of class " + clazz.getName() +
-                        " has both properties and a provider specified"
-                    );
-
-                // create a new instance of the property provider and provide the properties for the factory
-                PropertyProvider provider;
-                try {
-                    provider = getConstructor(inject.provider()).newInstance();
-                } catch (Exception e) {
-                    throw new ServiceInitializationException(
-                        "Error while creating a new instance of the property provider " + inject.provider(), e
-                    );
-                }
-                properties = provider.provide(resolveDescriptor(fieldType), fieldType, context);
-            }
-
-            Class<?> dependencyType = fieldType;
-
-            // check if the injection descriptor has an implementation specified
-            if (hasImplementation) {
-                if (!fieldType.isAssignableFrom(implementation))
-                    throw new ServiceInitializationException(
-                        "Service field " + field + " implementation " + implementation.getName() +
-                        " does not implement the service type " + fieldType.getName()
-                    );
-                // use the implementation of the service, if it is specified
-                dependencyType = implementation;
-            }
-
-            // resolve and inject the dependency for the field
+            // try to inject the instance of the service into the field
             try {
-                field.set(instance, get(dependencyType, context, properties));
+                field.set(instance, injection);
             } catch (Exception e) {
                 throw new ServiceInitializationException(
-                    "Error while injecting dependency " + dependencyType.getName() + " into field " + field.getName() +
-                    " of class " + clazz.getName(), e
+                    "Error while injecting dependency " + injection.getClass().getName() + " into field " +
+                    field.getName() + " of class " + clazz.getName(), e
                 );
             }
         }

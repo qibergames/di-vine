@@ -20,7 +20,7 @@ public class NoPropertiesProvider implements PropertyProvider<Object, Object> {
      */
     @Override
     @SuppressWarnings("rawtypes")
-    public Object provide(@NotNull Service descriptor, @NotNull Class type, @NotNull Class context) {
+    public @NotNull Object provide(@NotNull Service descriptor, @NotNull Class type, @NotNull Class context) {
         throw new IllegalStateException("This should never be called.");
     }
 }
