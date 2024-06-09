@@ -6,6 +6,7 @@ import com.atlas.divine.descriptor.generic.ServiceLike;
 import com.atlas.divine.exception.InvalidServiceException;
 import com.atlas.divine.exception.ServiceInitializationException;
 import com.atlas.divine.provider.AnnotationProvider;
+import com.atlas.divine.provider.Ref;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.exception.UnknownDependencyException;
 import org.jetbrains.annotations.NotNull;
@@ -153,6 +154,41 @@ public interface ContainerInstance {
     @NotNull <TService, TProperties> TService get(
         @NotNull Class<TService> type, @NotNull Class<?> context, @Nullable TProperties properties
     );
+
+    /**
+     * Create a reference to a dependency that will be lazily initialized when the reference is accessed.
+     * <p>
+     * This interface is used to inject dependencies into a class, without actually retrieving the dependency.
+     * The dependency will be retrieved when the {@link Ref#get()} method is called.
+     * <p>
+     * This feature is useful, when you only want to instantiate a dependency during runtime, after service initialization.
+     * <p>
+     * Using {@link Ref} can fix circular dependencies, by allowing you to lazily inject a dependency.
+     *
+     * @param type the class type of the dependency
+     * @return the reference to the desired dependency type
+     *
+     * @param <TService> the type of the dependency
+     */
+    <TService> @NotNull Ref<TService> getRef(@NotNull Class<TService> type);
+
+    /**
+     * Create a reference to a dependency that will be lazily initialized when the reference is accessed.
+     * <p>
+     * This interface is used to inject dependencies into a class, without actually retrieving the dependency.
+     * The dependency will be retrieved when the {@link Ref#get()} method is called.
+     * <p>
+     * This feature is useful, when you only want to instantiate a dependency during runtime, after service initialization.
+     * <p>
+     * Using {@link Ref} can fix circular dependencies, by allowing you to lazily inject a dependency.
+     *
+     * @param type the class type of the dependency
+     * @param context the caller class that the container is being called from
+     * @return the reference to the desired dependency type
+     *
+     * @param <TService> the type of the dependency
+     */
+    <TService> @NotNull Ref<TService> getRef(@NotNull Class<TService> type, @NotNull Class<?> context);
 
     /**
      * Register a dependency instance in the container cache for the specified class type.
