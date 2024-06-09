@@ -3,6 +3,7 @@ package com.atlas.divine.impl;
 import com.atlas.divine.*;
 import com.atlas.divine.exception.*;
 import com.atlas.divine.provider.AnnotationProvider;
+import com.atlas.divine.provider.Ref;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.tree.cache.Dependency;
 import com.atlas.divine.descriptor.generic.*;
@@ -394,7 +395,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // check if the requested dependency is already initialized in the dependency tree
         if (stack.contains(type))
             throw new CircularDependencyException(
-                "Circular dependency detected for service " + type.getName() + " in context " + context.getName()
+                "Circular dependency detected for service " + type.getName() + " in context " + context.getName() +
+                ". Consider changing code design, or use Ref<T> to lazily inject the dependency."
             );
 
         // push the current class type to the stack
@@ -419,6 +421,91 @@ public class DefaultContainerImpl implements ContainerRegistry {
         finally {
             stack.pop();
         }
+    }
+
+    /**
+     * Create a reference to a dependency that will be lazily initialized when the reference is accessed.
+     * <p>
+     * This interface is used to inject dependencies into a class, without actually retrieving the dependency.
+     * The dependency will be retrieved when the {@link Ref#get()} method is called.
+     * <p>
+     * This feature is useful, when you only want to instantiate a dependency during runtime, after service initialization.
+     * <p>
+     * Using {@link Ref} can fix circular dependencies, by allowing you to lazily inject a dependency.
+     *
+     * @param type the class type of the dependency
+     * @return the reference to the desired dependency type
+     *
+     * @param <TService> the type of the dependency
+     */
+    @Override
+    public <TService> @NotNull Ref<TService> getRef(@NotNull Class<TService> type) {
+        return () -> get(type);
+    }
+
+    /**
+     * Create a reference to a dependency that will be lazily initialized when the reference is accessed.
+     * <p>
+     * This interface is used to inject dependencies into a class, without actually retrieving the dependency.
+     * The dependency will be retrieved when the {@link Ref#get()} method is called.
+     * <p>
+     * This feature is useful, when you only want to instantiate a dependency during runtime, after service initialization.
+     * <p>
+     * Using {@link Ref} can fix circular dependencies, by allowing you to lazily inject a dependency.
+     *
+     * @param type the class type of the dependency
+     * @param context the caller class that the container is being called from
+     * @return the reference to the desired dependency type
+     *
+     * @param <TService> the type of the dependency
+     */
+    @Override
+    public <TService> @NotNull Ref<TService> getRef(@NotNull Class<TService> type, @NotNull Class<?> context) {
+        return () -> get(type, context);
+    }
+
+
+    /**
+     * Create a reference to a dependency that will be lazily initialized when the reference is accessed.
+     *
+     * @param genericType the generic type of the dependency, that will be resolved as the service type
+     * @param inject the injection descriptor of the dependency
+     * @param context the caller class that the container is being called from
+     * @return the lazy reference to the desired dependency type
+     *
+     * @param <TService> the type of the dependency
+     */
+    @SuppressWarnings("unchecked")
+    public <TService> @NotNull Ref<TService> resolveReference(
+        @NotNull Type genericType, @NotNull Inject inject, @NotNull Class<?> context
+    ) {
+        // validate that the generic type is a parameterized type
+        if (!(genericType instanceof ParameterizedType)) throw new InvalidServiceAccessException(
+            "Ref<T> generic type " + genericType + " must be a parameterized type"
+        );
+
+        // validate that the generic type has one actual type argument
+        Type[] typeArguments = ((ParameterizedType) genericType).getActualTypeArguments();
+        if (typeArguments.length != 1) throw new InvalidServiceAccessException(
+            "Ref<T> generic type " + genericType + " must have one actual type argument"
+        );
+
+        // resolve the actual type argument of the generic type
+        Type typeArgument = typeArguments[0];
+        Class<?> type;
+
+        // convert the type argument to a class type
+        if (typeArgument instanceof Class<?>)
+            type = (Class<?>) typeArgument;
+        else if (typeArgument instanceof ParameterizedType)
+            type = (Class<?>) ((ParameterizedType) typeArgument).getRawType();
+        else
+            throw new InvalidServiceAccessException(
+                "Generic type " + genericType + " must have a class type as its actual type argument"
+            );
+
+        // create a referenced service dependency for the resolved generic type
+        return (Ref<TService>) getRef(type);
     }
 
     /**
@@ -888,9 +975,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @NotNull Object createInjectionInstance(
-        @NotNull Class<?> fieldType, @NotNull String fieldName, @NotNull Class<?> targetClass, @NotNull Inject inject,
-        @NotNull Class<?> context, @NotNull InjectionTarget injectionTarget
+        @NotNull Class<?> fieldType, @NotNull Type genericType, @NotNull String fieldName,
+        @NotNull Class<?> targetClass, @NotNull Inject inject, @NotNull Class<?> context,
+        @NotNull InjectionTarget injectionTarget
     ) {
+        // create a referenced access to the dependency to be lazily accessed
+        if (Ref.class.isAssignableFrom(fieldType))
+            return resolveReference(genericType, inject, context);
+
         // retrieve the implementation type of the service, if it is specified
         Class<?> implementation = inject.implementation();
 
@@ -978,7 +1070,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
             // create an instance of the service to be injected
             Object injection = createInjectionInstance(
-                field.getType(), field.getName(), clazz, inject, context, InjectionTarget.CLASS_FIELD
+                field.getType(), field.getGenericType(), field.getName(), clazz, inject, context, InjectionTarget.CLASS_FIELD
             );
 
             // try to inject the instance of the service into the field
@@ -1074,6 +1166,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
         // create the arguments of the constructor call
         Class<?>[] types = constructor.getParameterTypes();
+        Type[] genericTypes = constructor.getGenericParameterTypes();
         int parameterCount = constructor.getParameterCount();
         // the call arguments are initially `null`, as we have no proper way of resolving non-service-based parameters
         Object[] args = new Object[parameterCount];
@@ -1083,6 +1176,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // retrieve the metadata of the constructor parameter
             Parameter parameter = constructor.getParameters()[i];
             Class<?> paramType = types[i];
+            Type genericType = genericTypes[i];
             String paramName = parameter.getName();
 
             // try to resolve the annotation list of the constructor parameters
@@ -1111,7 +1205,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             Inject inject = parameter.getAnnotation(Inject.class);
             if (inject != null) {
                 args[i] = createInjectionInstance(
-                    paramType, paramName, type, inject, context,
+                    paramType, genericType, paramName, type, inject, context,
                     InjectionTarget.CONSTRUCTOR_PARAMETER
                 );
                 continue;
