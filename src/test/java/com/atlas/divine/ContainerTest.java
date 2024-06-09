@@ -4,6 +4,7 @@ import com.atlas.divine.exception.CircularDependencyException;
 import com.atlas.divine.exception.InvalidServiceAccessException;
 import com.atlas.divine.exception.InvalidServiceException;
 import com.atlas.divine.provider.AnnotationProvider;
+import com.atlas.divine.provider.Ref;
 import com.atlas.divine.runtime.lifecycle.AfterInitialized;
 import com.atlas.divine.tree.ContainerInstance;
 import com.atlas.divine.tree.ContainerRegistry;
@@ -419,7 +420,37 @@ class ContainerTest {
     }
 
     @Test
-    public void test_circular_dependency_reference() {
+    public void test_direct_circular_dependency() {
         assertThrows(CircularDependencyException.class, () -> Container.get(ServiceA.class));
+    }
+
+    @Service
+    static class ServiceFoo {
+        @Inject
+        Ref<ServiceBar> serviceBar;
+
+        int foo() {
+            return serviceBar.get().bar() + 5;
+        }
+
+        int init() {
+            return 2;
+        }
+    }
+
+    @Service
+    static class ServiceBar {
+        @Inject
+        Ref<ServiceFoo> serviceFoo;
+
+        int bar() {
+            return serviceFoo.get().init() + 10;
+        }
+    }
+
+    @Test
+    public void test_referenced_circular_dependency() {
+        ServiceFoo service = Container.get(ServiceFoo.class);
+        assertEquals(2 + 10 + 5, service.foo());
     }
 }
