@@ -453,4 +453,18 @@ class ContainerTest {
         ServiceFoo service = Container.get(ServiceFoo.class);
         assertEquals(2 + 10 + 5, service.foo());
     }
+
+    @Test
+    public void test_referenced_token() {
+        Container.set("MY_VALUE", "Hello, World");
+
+        @Service
+        class MyService {
+            @Inject(token = "MY_VALUE")
+            public Ref<String> value;
+        }
+
+        MyService service = Container.get(MyService.class);
+        assertEquals("Hello, World", service.value.get());
+    }
 }
