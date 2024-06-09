@@ -464,21 +464,13 @@ public class DefaultContainerImpl implements ContainerRegistry {
         return () -> get(type, context);
     }
 
-
     /**
-     * Create a reference to a dependency that will be lazily initialized when the reference is accessed.
+     * Resolve the type of the dependency that is specified by the {@link Ref}'s generic type.
      *
-     * @param genericType the generic type of the dependency, that will be resolved as the service type
-     * @param inject the injection descriptor of the dependency
-     * @param context the caller class that the container is being called from
-     * @return the lazy reference to the desired dependency type
-     *
-     * @param <TService> the type of the dependency
+     * @param genericType the generic type of the reference
+     * @return the resolved class type of the dependency
      */
-    @SuppressWarnings("unchecked")
-    public <TService> @NotNull Ref<TService> resolveReference(
-        @NotNull Type genericType, @NotNull Inject inject, @NotNull Class<?> context
-    ) {
+    private @NotNull Class<?> resolveReferenceType(@NotNull Type genericType) {
         // validate that the generic type is a parameterized type
         if (!(genericType instanceof ParameterizedType)) throw new InvalidServiceAccessException(
             "Ref<T> generic type " + genericType + " must be a parameterized type"
@@ -496,16 +488,13 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
         // convert the type argument to a class type
         if (typeArgument instanceof Class<?>)
-            type = (Class<?>) typeArgument;
+            return  (Class<?>) typeArgument;
         else if (typeArgument instanceof ParameterizedType)
-            type = (Class<?>) ((ParameterizedType) typeArgument).getRawType();
+            return  (Class<?>) ((ParameterizedType) typeArgument).getRawType();
         else
             throw new InvalidServiceAccessException(
                 "Generic type " + genericType + " must have a class type as its actual type argument"
             );
-
-        // create a referenced service dependency for the resolved generic type
-        return (Ref<TService>) getRef(type);
     }
 
     /**
@@ -980,8 +969,12 @@ public class DefaultContainerImpl implements ContainerRegistry {
         @NotNull InjectionTarget injectionTarget
     ) {
         // create a referenced access to the dependency to be lazily accessed
-        if (Ref.class.isAssignableFrom(fieldType))
-            return resolveReference(genericType, inject, context);
+        if (Ref.class.isAssignableFrom(fieldType)) {
+            Class<?> refType = resolveReferenceType(genericType);
+            return (Ref<?>) () -> createInjectionInstance(
+                refType, refType, fieldName, targetClass, inject, context, injectionTarget
+            );
+        }
 
         // retrieve the implementation type of the service, if it is specified
         Class<?> implementation = inject.implementation();
@@ -1288,11 +1281,11 @@ public class DefaultContainerImpl implements ContainerRegistry {
                     break;
                 }
             }
-            // check if no constructor were indicated, for TypeDI to construct with
+            // check if no constructor were indicated, for the dependency injector to construct with
             if (constructor == null)
                 throw new InvalidServiceException(
                     "Class " + type.getName() + " has multiple constructors, but none of them is annotated with " +
-                    "@ConstructWith, therefore TypeDI cannot decide, which one to use."
+                    "@ConstructWith, therefore the dependency injector cannot decide, which one to use."
                 );
         }
 
