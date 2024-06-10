@@ -497,13 +497,12 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
         // resolve the actual type argument of the generic type
         Type typeArgument = typeArguments[0];
-        Class<?> type;
 
         // convert the type argument to a class type
         if (typeArgument instanceof Class<?>)
-            return  (Class<?>) typeArgument;
+            return (Class<?>) typeArgument;
         else if (typeArgument instanceof ParameterizedType)
-            return  (Class<?>) ((ParameterizedType) typeArgument).getRawType();
+            return (Class<?>) ((ParameterizedType) typeArgument).getRawType();
         else
             throw new InvalidServiceAccessException(
                 "Generic type " + genericType + " must have a class type as its actual type argument"
