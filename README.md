@@ -497,7 +497,7 @@ void handleTermination() {
     
     // both of these cases would normally open up bugs here, if you don't call
     // explicitly a clean-up method
-    // 
+    
     // luckily, the dependency injector will call the termination method for your registered 
     // dependencies, as specified
 }
