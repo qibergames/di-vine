@@ -1,10 +1,12 @@
 # The DiVine Dependency Injection Tool
+
 DiVine is an advanced [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) tool for Java, 
 that is inspired by the design of the TypeScript [typedi](https://github.com/typestack/typedi) library.
 <p>
 It is designed to be simple to use, and to provide a powerful and flexible way to manage dependencies in your Java applications.
 
 ## Automate initializations
+
 One of the main purposes behind a dependency injection tool, is to minimize the need of manual code initialization.
 Rather than spending time on developing the business logic of applications, you have to do a lot of work of making,
 passing and deleting instances throughout your entire codebase.
@@ -13,6 +15,7 @@ This is where DiVine comes into place. It minimizes the code for service registr
 can have your focus kept on implementing actual logic.
 
 ## Basic usage
+
 Note that, DiVine requires services to have a `@Service` annotation, called the service descriptor. This tells the
 dependency injector, how the annotated service behaves.
 <p>
@@ -141,8 +144,8 @@ void testContainers() {
     Container.ofContext(); // will return a unique container for the call context, that is called 
     // `container-%container_id_increment%`
     
-    Container.ofContext("other-container"); // will return a unique sub-container of `Container.ofContext()`, 
-    // which is called `other-container`
+    Container.ofContext("other-container"); // will return a unique sub-container of 
+    // `Container.ofContext()`, which is called `other-container`
 }
 ```
 
@@ -183,8 +186,6 @@ When requesting dependencies, the implementations may differ for various context
 way of requesting different implementations for a service.
 
 ```java
-import java.awt.*;
-
 @Service(
     // use the `CarFactory` class to create new instances for the `Car` type
     factory = CarFactory.class,
@@ -231,6 +232,7 @@ void orderCars() {
 ```
 
 ### Service implementations
+
 In case, you want to use a single implementation of your service interface, throughout your entire application,
 you can use the following code.
 
@@ -348,6 +350,7 @@ class UserController {
 ```
 
 ### Circular Dependencies
+
 A circular dependency problem occurs, when two or more services depend on each other. By default, the dependency injector
 cannot resolve this issue, because the resolving would end up in an infinite loop, as the dependencies would keep requesting each other.
 <p>
@@ -374,6 +377,7 @@ void init() {
 ```
 
 #### Using referenced dependency access
+
 One workaround for circular dependency access, is to use `Ref`s. A `Ref<T>` features lazy access to a dependency.
 
 ```java
@@ -405,6 +409,7 @@ void useCircularRefs() {
 ```
 
 #### Using lazy dependency access
+
 Fields annotated with`@Inject(lazy=true)` will be resolved after the whole dependency tree was resolved.
 This way, when injecting these fields, each of the required dependencies are already resolved.
 <p>
@@ -426,6 +431,7 @@ class ServiceB {
 ```
 
 ### Service lifecycles
+
 DiVine features a set of events, that are called for a service during runtime, when it reaches a certain lifecycle.
 <p>
 Lifecycles make your code easier, as you don't have to define a public initialization or clean up method, and call
@@ -434,6 +440,7 @@ it from various parts of your application - which is often untraceable.
 You can register listeners for the following lifecycles:
 
 #### Initialization lifecycle
+
 The `@AfterInitialized` method is called right after the service is instantiated, and each field is injected.
 <p>
 This feature is useful, when you have a bunch of dependencies of your service, and you don't want to use a constructor,
@@ -453,6 +460,7 @@ class CloudController {
 ```
 
 #### Lazy initialization lifecycle
+
 The `@AfterInitialized(lazy = true)` method is called after the whole dependency tree is resolved, therefore here
 you can already access each dependency of the service, that was lazily injected.
 
@@ -470,6 +478,7 @@ class AuthService {
 ```
 
 #### Termination lifecycle
+
 Your services may initialize components, that must be closed/terminated. You could add a public method to clean up these
 resources, however you may forget to call these outside the service, before unregistering the service.
 
@@ -491,7 +500,8 @@ class UserManager {
 }
 
 void handleTermination() {
-    myContainer.unset(UserManager.class); // you may manually remove the dependency from the container
+    myContainer.unset(UserManager.class); // you may manually remove the 
+    // dependency from the container
     
     myContainer.reset(); // you may manually reset the entire container
     
@@ -504,6 +514,7 @@ void handleTermination() {
 ```
 
 ### Dealing with multiple constructors
+
 When you declare multiple constructors for your service, by default, the dependency injector cannot decide which one
 to use to initialize the service with.
 <p>
