@@ -4,6 +4,7 @@ import com.atlas.divine.*;
 import com.atlas.divine.exception.*;
 import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.provider.Ref;
+import com.atlas.divine.runtime.lazy.LazyFieldAccess;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.tree.cache.Dependency;
 import com.atlas.divine.descriptor.generic.*;
@@ -77,7 +78,17 @@ public class DefaultContainerImpl implements ContainerRegistry {
     /**
      * The stack of classes that are currently being resolved in the container.
      */
-    private final @NotNull ThreadLocal<Stack<Class<?>>> resolvingStack = ThreadLocal.withInitial(Stack::new);
+    private final @NotNull ThreadLocal<@NotNull Stack<@NotNull Class<?>>> resolvingStack = ThreadLocal.withInitial(Stack::new);
+
+    /**
+     * The map of fields to be lazily injected by the container.
+     */
+    private final @NotNull ThreadLocal<@NotNull Map<@NotNull Field, @NotNull LazyFieldAccess>> lazyFields = ThreadLocal.withInitial(LinkedHashMap::new);
+
+    /**
+     * The indication, whether the container is currently injecting lazy fields.
+     */
+    private final @NotNull ThreadLocal<@NotNull Boolean> injectingLazyFields = ThreadLocal.withInitial(() -> false);
 
     /**
      * The root container of the container hierarchy. It is {@code null} if {@code this} container is the root.
@@ -396,7 +407,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
         if (stack.contains(type))
             throw new CircularDependencyException(
                 "Circular dependency detected for service " + type.getName() + " in context " + context.getName() +
-                ". Consider changing code design, or use Ref<T> to lazily inject the dependency."
+                ". If you are certain, this is not a bug, consider using Ref<T>, or @Inject(lazy=true) to lazily " +
+                "inject the dependency."
             );
 
         // push the current class type to the stack
@@ -417,9 +429,10 @@ public class DefaultContainerImpl implements ContainerRegistry {
                 "Error whilst initializing service " + type.getName() + " in context " + context.getName(), e
             );
         }
-        // finally clean up the stack
+        // finally clean up the stack and inject lazy field dependencies
         finally {
             stack.pop();
+            injectLazyFields();
         }
     }
 
@@ -968,6 +981,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
         @NotNull Class<?> targetClass, @NotNull Inject inject, @NotNull Class<?> context,
         @NotNull InjectionTarget injectionTarget
     ) {
+        // throw an exception if lazy injection is applied to a non-class field target
+        if (inject.lazy() && injectionTarget != InjectionTarget.CLASS_FIELD) {
+            throw new InvalidServiceAccessException(
+                "Lazy injection can only be applied for class fields, not for " + injectionTarget + ". If you want to " +
+                "lazily inject a dependency for this target, use Ref<T> instead."
+            );
+        }
+
         // create a referenced access to the dependency to be lazily accessed
         if (Ref.class.isAssignableFrom(fieldType)) {
             Class<?> refType = resolveReferenceType(genericType);
@@ -1040,6 +1061,57 @@ public class DefaultContainerImpl implements ContainerRegistry {
     }
 
     /**
+     * Inject the lazy fields that are stored for the current dependency tree.
+     */
+    private void injectLazyFields() {
+        // return if the dependency resolving tree is still being resolved
+        if (!resolvingStack.get().isEmpty())
+            return;
+
+        // resolve the lazy fields to be injected
+        Map<Field, LazyFieldAccess> fields = lazyFields.get();
+
+        // return and clean up if the lazy fields had been already injected
+        // this prevents infinite loops when resolving circular dependencies
+        if (injectingLazyFields.get()) {
+            clearLazyFields();
+            return;
+        }
+
+        // begin injecting the lazy fields
+        injectingLazyFields.set(true);
+
+        // iterate over the lazy fields to be injected
+        for (Map.Entry<Field, LazyFieldAccess> entry : fields.entrySet()) {
+            // resolve the field and the access to the field
+            Field field = entry.getKey();
+            LazyFieldAccess access = entry.getValue();
+
+            // inject the field into the instance
+            injectField(
+                field, access.getInstance(), field.getType(), field.getGenericType(), field.getName(), access.getType(),
+                access.getDescriptor(), access.getContext()
+            );
+        }
+
+        // clear the lazy fields after injecting them
+        clearLazyFields();
+
+        // end injecting the lazy fields
+        injectingLazyFields.set(false);
+    }
+
+    /**
+     * Clear the lazy fields that are stored for the current dependency tree.
+     */
+    private void clearLazyFields() {
+        // clear any pending lazy fields that are stored in the thread-local map
+        lazyFields.get().clear();
+        // remove the thread-local map from the thread
+        lazyFields.remove();
+    }
+
+    /**
      * Inject the fields of the specified instance.
      *
      * @param clazz the class of the instance
@@ -1061,20 +1133,52 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // make sure the field is accessible for the dependency injector
             field.setAccessible(true);
 
-            // create an instance of the service to be injected
-            Object injection = createInjectionInstance(
-                field.getType(), field.getGenericType(), field.getName(), clazz, inject, context, InjectionTarget.CLASS_FIELD
-            );
-
-            // try to inject the instance of the service into the field
-            try {
-                field.set(instance, injection);
-            } catch (IllegalAccessException e) {
-                throw new ServiceInitializationException(
-                    "Error while injecting dependency " + injection.getClass().getName() + " into field " +
-                    field.getName() + " of class " + clazz.getName(), e
-                );
+            // register the field in the lazy fields map, if lazy injection is applied
+            if (inject.lazy() && !injectingLazyFields.get()) {
+                // in order to account for circular dependencies, we need to register the field on the first pass
+                lazyFields.get().computeIfAbsent(field, k -> new LazyFieldAccess(
+                    instance, clazz, inject, context
+                ));
+                continue;
             }
+
+            // inject the field into the instance
+            injectField(
+                field, instance, field.getType(), field.getGenericType(), field.getName(), clazz, inject, context
+            );
+        }
+    }
+
+    /**
+     * Inject the specified field into the instance of the service.
+     *
+     * @param field the field to be injected
+     * @param instance the instance of the service
+     * @param fieldType the type of the field
+     * @param genericType the generic type of the field
+     * @param fieldName the name of the field
+     * @param targetClass the class that requested the dependency
+     * @param inject the injection descriptor of the field
+     * @param context the class that the dependency is being called from
+     */
+    private void injectField(
+        @NotNull Field field, @NotNull Object instance, @NotNull Class<?> fieldType, @NotNull Type genericType,
+        @NotNull String fieldName, @NotNull Class<?> targetClass, @NotNull Inject inject, @NotNull Class<?> context
+    ) {
+        // create an instance of the service to be injected
+        Object injection = createInjectionInstance(
+            fieldType, genericType, fieldName, targetClass, inject, context,
+            InjectionTarget.CLASS_FIELD
+        );
+
+        // try to inject the instance of the service into the field
+        try {
+            field.set(instance, injection);
+        } catch (IllegalAccessException e) {
+            throw new ServiceInitializationException(
+                "Error while injecting dependency " + injection.getClass().getName() + " into field " +
+                    field.getName() + " of class " + targetClass.getName(), e
+            );
         }
     }
 
