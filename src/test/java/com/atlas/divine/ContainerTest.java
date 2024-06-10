@@ -467,4 +467,34 @@ class ContainerTest {
         MyService service = Container.get(MyService.class);
         assertEquals("Hello, World", service.value.get());
     }
+
+    @Service
+    static class LazyServiceA {
+        @Inject(lazy = true)
+        LazyServiceB serviceB;
+
+        public int a() {
+            return serviceB.b() + 3;
+        }
+
+        public int init() {
+            return 1;
+        }
+    }
+
+    @Service
+    static class LazyServiceB {
+        @Inject(lazy = true)
+        LazyServiceA serviceA;
+
+        public int b() {
+            return serviceA.init() + 2;
+        }
+    }
+
+    @Test
+    public void test_lazy_referenced_circular_dependency() {
+        LazyServiceA service = Container.get(LazyServiceA.class);
+        assertEquals(1 + 2 + 3, service.a());
+    }
 }
