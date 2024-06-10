@@ -141,8 +141,8 @@ void testContainers() {
     Container.ofContext(); // will return a unique container for the call context, that is called 
     // `container-%container_id_increment%`
     
-    Container.ofContext("other-container"); // will return a unique sub-container of `Container.ofContext()`, 
-    // which is called `other-container`
+    Container.ofContext("other-container"); // will return a unique sub-container of 
+    // `Container.ofContext()`, which is called `other-container`
 }
 ```
 
@@ -491,7 +491,8 @@ class UserManager {
 }
 
 void handleTermination() {
-    myContainer.unset(UserManager.class); // you may manually remove the dependency from the container
+    myContainer.unset(UserManager.class); // you may manually remove the 
+    // dependency from the container
     
     myContainer.reset(); // you may manually reset the entire container
     
