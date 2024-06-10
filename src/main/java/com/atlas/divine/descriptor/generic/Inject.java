@@ -6,6 +6,7 @@ import com.atlas.divine.descriptor.property.PropertyProvider;
 import com.atlas.divine.descriptor.factory.Factory;
 import com.atlas.divine.descriptor.implementation.NoImplementation;
 import com.atlas.divine.descriptor.property.NoPropertiesProvider;
+import com.atlas.divine.provider.Ref;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.annotation.ElementType;
@@ -17,6 +18,10 @@ import java.lang.annotation.Target;
  * Represents an annotation that indicates, that a certain field of a class
  * should be injected with a service. The framework will try to resolve the target service from the container
  * and will inject the value to the field.
+ * <p>
+ * Note that, {@link Inject}ed fields will be injected after the requesting service is initialized, therefore you
+ * should not use them in the constructor, as they will be null at the time. If you need to use them in the constructor,
+ * you should use the {@link Inject} annotation on the constructor parameters.
  * <p>
  * Example:
  * <pre>
@@ -87,4 +92,20 @@ public @interface Inject {
      * @return the service implementation class
      */
     @NotNull @ServiceLike Class<?> implementation() default NoImplementation.class;
+
+    /**
+     * Retrieve the indication, whether the target field should be lazily injected.
+     * <p>
+     * Lazily injected fields are injected after the dependency tree is resolved, the target service and all its
+     * dependencies are created. This is useful when you are dealing with circular dependencies.
+     * <p>
+     * Note that, this feature will only work if the injection target is a class field. We cannot lazily inject
+     * constructor parameters.
+     * <p>
+     * Additionally, do not use lazy injection, if the dependency type is wrapped around a {@link Ref} type, as
+     * references are being lazily injected, implicitly.
+     *
+     * @return true, if the field should be lazily injected, false otherwise
+     */
+    boolean lazy() default false;
 }
