@@ -1,5 +1,6 @@
 # The DiVine Dependency Injection Tool
-DiVine is an advanced dependency injection tool for Java, that is inspired by the design of the TypeScript [typedi](https://github.com/typestack/typedi) library.
+DiVine is an advanced [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) tool for Java, 
+that is inspired by the design of the TypeScript [typedi](https://github.com/typestack/typedi) library.
 <p>
 It is designed to be simple to use, and to provide a powerful and flexible way to manage dependencies in your Java applications.
 
@@ -133,9 +134,15 @@ You can use the following methods to request various containers depending on the
 ```java
 void testContainers() {
     Container.ofGlobal(); // will return the root container if the container tree
-    Container.ofGlobal("my-container"); // will return a sub-container called `my-container`, that is a child of the root container
-    Container.ofContext(); // will return a unique container for the call context, that is called `container-%container_id_increment%`
-    Container.ofContext("other-container"); // will return a unique sub-container of `Container.ofContext()`, which is called `other-container`
+    
+    Container.ofGlobal("my-container"); // will return a sub-container called `my-container`, 
+    // that is a child of the root container
+    
+    Container.ofContext(); // will return a unique container for the call context, that is called 
+    // `container-%container_id_increment%`
+    
+    Container.ofContext("other-container"); // will return a unique sub-container of `Container.ofContext()`, 
+    // which is called `other-container`
 }
 ```
 
@@ -179,8 +186,10 @@ way of requesting different implementations for a service.
 import java.awt.*;
 
 @Service(
-    factory = CarFactory.class, // use the `CarFactory` class to create new instances for the `Car` type
-    scope = ServiceScope.TRANSIENT // use `TRANSIENT` scope, to create a new car instance, each time a car is requested
+    // use the `CarFactory` class to create new instances for the `Car` type
+    factory = CarFactory.class,
+    // use `TRANSIENT` scope, to create a new car instance, each time a car is requested
+    scope = ServiceScope.TRANSIENT 
 )
 interface Car {
     void drive();
@@ -195,7 +204,8 @@ enum CarType {
 class CarFactory implements Factory<Car, CarType> {
     @Override
     public @NotNull Car create(
-        @NotNull Service descriptor, @NotNull Class<? extends Car> type, @NotNull Class<?> context, @Nullable CarType carType
+        @NotNull Service descriptor, @NotNull Class<? extends Car> type, 
+        @NotNull Class<?> context, @Nullable CarType carType
     ) {
         return switch (carType) {
             case MERCEDES -> new MercedesCar();
@@ -294,10 +304,12 @@ class PostgresUserService implements UserService {
 }
 
 void initUserService() {
-    Container.implement(UserService.class, MongoUserService.class); // should work fine
-    Container.implement(UserService.class, MySQLUSerService.class); // should work fine
+    Container.implement(UserService.class, MongoUserService.class);
+    Container.implement(UserService.class, MySQLUSerService.class);
+    // both should work fine
     
-    Container.implement(UserService.class, PostgresUserService.class); // will throw an `InvalidServiceAccessException`
+    Container.implement(UserService.class, PostgresUserService.class); 
+    // will throw an `InvalidServiceAccessException`
 }
 ```
 
@@ -483,8 +495,11 @@ void handleTermination() {
     
     myContainer.reset(); // you may manually reset the entire container
     
-    // both of these cases would normally open up bugs here, if you don't call explicitly a clean-up method
-    // luckily, the dependency injector will call the termination method for your registered dependencies, as specified
+    // both of these cases would normally open up bugs here, if you don't call
+    // explicitly a clean-up method
+    // 
+    // luckily, the dependency injector will call the termination method for your registered 
+    // dependencies, as specified
 }
 ```
 
@@ -502,7 +517,8 @@ class ImageProcessor {
     private final int quality;
     private final boolean resize;
     
-    // by default, the dependency injector will use this method to instantiate the `ImageProcessor` class
+    // by default, the dependency injector will use this method to 
+    // instantiate the `ImageProcessor` class
     @ConstructWith
     public ImageProcessor(ImageOptions options) {
         quality = options.getQuality();
