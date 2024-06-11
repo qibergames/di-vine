@@ -43,3 +43,6 @@ bin/
 
 ### IntelliJ IDEA ###
 .idea
+
+### BunJS ###
+node_modules/
