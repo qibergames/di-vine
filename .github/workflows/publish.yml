@@ -1,0 +1,20 @@
+name: Gradle Publish
+
+on:
+    workflow_dispatch:
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            -   uses: actions/checkout@v4
+            -   uses: oven-sh/setup-bun@v1
+                with:
+                    bun-version: latest
+            -   run: bun install
+            -   run: bun semantic-release
+                env:
+                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
