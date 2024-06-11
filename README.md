@@ -112,7 +112,7 @@ public void mockUserController() {
 
 @Test
 public void test_UserController_getUser() {
-    UserController controller = Container.implement(UserController.class);
+    UserController controller = Container.get(UserController.class);
     User user = controller.getUser("test");
     asserEquals("ExampleUser", user.getName());
 }
