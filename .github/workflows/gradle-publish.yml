@@ -52,4 +52,4 @@ jobs:
                 env:
                     MAVEN_USERNAME: ${{ github.actor }}
                     MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-                    VERSION: ${{ github.event.type == 'workflow_dispatch' && github.event.inputs.version || github.event.release.tag_name}}
+                    VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.event.release.tag_name}}
