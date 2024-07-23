@@ -22,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Represents a container registry that instantiates and caches services globally and for specific scopes.
@@ -209,6 +210,47 @@ public class Container {
     ) {
         CallContext context = getContextContainer();
         return context.getContainer().get(type, context.getCaller(), properties);
+    }
+
+    /**
+     * Resolve the specified dependency from the container and pass it to the mapper function.
+     *
+     * @param type the class type of the dependency
+     * @param mapper the function to transform the dependency value with
+     *
+     * @return the transformed dependency value
+     *
+     * @param <TResult> the type of the transformed value
+     * @param <TService> the type of the dependency
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    public <TResult, TService> TResult resolve(
+        @NotNull Class<TService> type, @NotNull Function<@NotNull TService, TResult> mapper
+    ) {
+        CallContext context = getContextContainer();
+        return context.getContainer().resolve(type, context.getCaller(), mapper);
+    }
+
+    /**
+     * Resolve the specified dependency from the container and pass it to the mapper function.
+     *
+     * @param token the token of the dependency
+     * @param mapper the function to transform the dependency value with
+     *
+     * @return the transformed dependency value
+     *
+     * @param <TResult> the type of the transformed value
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    public <TResult> TResult resolve(
+        @NotNull String token, @NotNull Function<@NotNull String, TResult> mapper
+    ) {
+        CallContext context = getContextContainer();
+        return context.getContainer().resolve(token, mapper);
     }
 
     /**

@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Represents a scope specific container instance that manages dependencies and token values.
@@ -135,6 +136,40 @@ public interface ContainerInstance {
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @NotNull <TService, TProperties> TService get(@NotNull Class<TService> type, @Nullable TProperties properties);
+
+    /**
+     * Resolve the specified dependency from the container and pass it to the mapper function.
+     *
+     * @param type the class type of the dependency
+     * @param context the caller class that the container is being called from
+     * @param mapper the function to transform the dependency value with
+     *
+     * @return the transformed dependency value
+     *
+     * @param <TResult> the type of the transformed value
+     * @param <TService> the type of the dependency
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    <TResult, TService> TResult resolve(
+        @NotNull Class<TService> type, @NotNull Class<?> context, @NotNull Function<@NotNull TService, TResult> mapper
+    );
+
+    /**
+     * Resolve the specified dependency from the container and pass it to the mapper function.
+     *
+     * @param token the token of the dependency
+     * @param mapper the function to transform the dependency value with
+     *
+     * @return the transformed dependency value
+     *
+     * @param <TResult> the type of the transformed value
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    <TResult> TResult resolve(@NotNull String token, Function<@NotNull String, TResult> mapper);
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,

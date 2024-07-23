@@ -497,4 +497,11 @@ class ContainerTest {
         LazyServiceA service = Container.get(LazyServiceA.class);
         assertEquals(1 + 2 + 3, service.a());
     }
+
+    @Test
+    public void test_container_token_resolve() {
+        Container.set("SECRET", "1337");
+        int value = Container.resolve("SECRET", Integer::parseInt);
+        assertEquals(1337, value);
+    }
 }
