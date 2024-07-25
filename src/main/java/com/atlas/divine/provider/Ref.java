@@ -2,6 +2,7 @@ package com.atlas.divine.provider;
 
 import com.atlas.divine.descriptor.generic.Inject;
 import com.atlas.divine.tree.ContainerInstance;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Represents a lazy accessor of a dependency value.
@@ -24,5 +25,5 @@ public interface Ref<T> {
      *
      * @return the service implementation
      */
-    T get();
+    @NotNull T get();
 }
