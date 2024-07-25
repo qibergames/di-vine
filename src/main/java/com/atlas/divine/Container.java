@@ -246,8 +246,8 @@ public class Container {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    public <TResult> TResult resolve(
-        @NotNull String token, @NotNull Function<@NotNull String, TResult> mapper
+    public <TDependency, TResult> TResult resolve(
+        @NotNull String token, @NotNull Function<TDependency, TResult> mapper
     ) {
         CallContext context = getContextContainer();
         return context.getContainer().resolve(token, mapper);
