@@ -8,8 +8,9 @@
 name: Gradle Publish
 
 on:
-    release:
-        types: [ created ]
+    push:
+        tags:
+            - 'v**'
     workflow_dispatch:
         inputs:
             version:
@@ -45,6 +46,21 @@ jobs:
             -   name: Build with Gradle
                 run: ./gradlew build
 
+            -   name: Write release version
+                if: ${{ github.event_name != 'workflow_dispatch' }}
+                run: |
+                    VERSION=${GITHUB_REF_NAME#v}
+                    echo Version: $VERSION
+                    echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+            -   name: Write release version
+                if: ${{ github.event_name == 'workflow_dispatch' }}
+                env:
+                    VERSION: ${{ github.event.inputs.version}}
+                run: |
+                    echo Version: $VERSION
+                    echo "VERSION=$VERSION" >> $GITHUB_ENV
+
             # The USERNAME and TOKEN need to correspond to the credentials environment variables used in
             # the publishing section of your build.gradle
             -   name: Publish to GitHub Packages
@@ -52,4 +68,3 @@ jobs:
                 env:
                     MAVEN_USERNAME: ${{ github.actor }}
                     MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-                    VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.event.release.tag_name}}
