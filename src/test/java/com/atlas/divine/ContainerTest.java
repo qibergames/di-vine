@@ -15,6 +15,7 @@ import com.atlas.divine.descriptor.generic.Service;
 import com.atlas.divine.descriptor.generic.ServiceScope;
 import com.atlas.divine.descriptor.property.NoProperties;
 import com.atlas.divine.descriptor.property.PropertyProvider;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -295,33 +296,39 @@ class ContainerTest {
         int get();
     }
 
+    @RequiredArgsConstructor
     static class MyCustomServiceImpl implements MyCustomService {
+        private final int val;
+
         @Override
         public int get() {
-            return 123;
+            return val;
         }
     }
 
-    static class MyProvider implements AnnotationProvider<MyCustomServiceImpl> {
+    static class MyAnnotationProvider implements AnnotationProvider<MyCustomServiceImpl, MyCustomAnnotation> {
         @Override
-        public @NotNull MyCustomServiceImpl provide(@NotNull Class<?> target, @NotNull ContainerInstance container) {
-            return new MyCustomServiceImpl();
+        public @NotNull MyCustomServiceImpl provide(
+            @NotNull Class<?> target, @NotNull MyCustomAnnotation annotation, @NotNull ContainerInstance container
+        ) {
+            return new MyCustomServiceImpl(annotation.val());
         }
     }
 
     @Retention(RetentionPolicy.RUNTIME)
     @interface MyCustomAnnotation {
+        int val();
     }
 
     @Service
     static class MyProvidedService {
-        @MyCustomAnnotation
+        @MyCustomAnnotation(val = 123)
         public MyCustomService service;
     }
 
     @Test
     public void test_custom_annotation_injection() {
-        Container.addProvider(MyCustomAnnotation.class, new MyProvider());
+        Container.addProvider(MyCustomAnnotation.class, new MyAnnotationProvider());
         MyProvidedService service = Container.get(MyProvidedService.class);
         assertEquals(123, service.service.get());
     }
