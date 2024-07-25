@@ -393,7 +393,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
-    public <TResult> TResult resolve(@NotNull String token, @NotNull Function<@NotNull String, TResult> mapper) {
+    public <TDependency, TResult> TResult resolve(
+        @NotNull String token, @NotNull Function<TDependency, TResult> mapper
+    ) {
         return mapper.apply(get(token));
     }
 
