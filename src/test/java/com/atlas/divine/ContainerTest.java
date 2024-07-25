@@ -501,7 +501,7 @@ class ContainerTest {
     @Test
     public void test_container_token_resolve() {
         Container.set("SECRET", "1337");
-        int value = Container.resolve("SECRET", Integer::parseInt);
+        int value = Container.<String, Integer>resolve("SECRET", Integer::parseInt);
         assertEquals(1337, value);
     }
 }
