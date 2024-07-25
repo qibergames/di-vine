@@ -169,7 +169,7 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    <TDependency, TResult> TResult resolve(@NotNull String token, Function<TDependency, TResult> mapper);
+    <TDependency, TResult> TResult resolve(@NotNull String token, @NotNull Function<TDependency, TResult> mapper);
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
