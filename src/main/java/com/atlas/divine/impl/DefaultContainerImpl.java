@@ -69,7 +69,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
     /**
      * The map of the registered implementation providers for custom annotations.
      */
-    private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull AnnotationProvider<?>> providers = new ConcurrentHashMap<>();
+    private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull AnnotationProvider<?, ?>> providers = new ConcurrentHashMap<>();
 
     /**
      * The map of registered services that are grouped by their unique identifier.
@@ -202,7 +202,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      */
     @Override
     public void addProvider(
-        @NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?> provider
+        @NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?, ?> provider
     ) {
         Retention retention = annotation.getAnnotation(Retention.class);
         if (retention == null || retention.value() != RetentionPolicy.RUNTIME)
@@ -1229,17 +1229,18 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param target the class that requested the dependency
      * @return the implementation of the annotation
      */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Object provideAnnotation(@NotNull Annotation @NotNull [] annotations, @NotNull Class<?> target) {
         // iterate over the annotations of the field
         for (Annotation annotation : annotations) {
             // skip annotations that are not registered in the container
-            AnnotationProvider<?> provider = providers.get(annotation.annotationType());
+            AnnotationProvider provider = providers.get(annotation.annotationType());
             if (provider == null)
                 continue;
 
             // provide the implementation of the annotation
             try {
-                return provider.provide(target, this);
+                return provider.provide(target, annotation, this);
             } catch (Exception e) {
                 throw new ServiceInitializationException(
                     "Error while providing annotation " + annotation.annotationType().getName() + " for " +
