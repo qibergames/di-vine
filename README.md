@@ -543,3 +543,34 @@ class ImageProcessor {
     }
 }
 ```
+
+## Installation
+You may use the following code to use DiVine in your project.
+Check out our [jitpack](https://jitpack.io/#qibergames/di-vine) page for the latest version.
+
+### Maven
+```xml
+<repository>
+    <id>jitpack.io</id>
+    <url>https://jitpack.io</url>
+</repository>
+```
+```xml
+<dependency>
+    <groupId>com.github.qibergames</groupId>
+    <artifactId>di-vine</artifactId>
+    <version>VERSION</version>
+</dependency>
+```
+
+### Gradle
+```gradle
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+```
+```gradle
+dependencies {
+    implementation 'com.github.qibergames:di-vine:VERSION'
+}
+```
