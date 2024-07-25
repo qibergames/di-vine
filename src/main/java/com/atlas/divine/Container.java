@@ -128,7 +128,9 @@ public class Container {
      *
      * @throws InvalidServiceException if the annotation does not have a RUNTIME retention
      */
-    public void addProvider(@NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?> provider) {
+    public void addProvider(
+        @NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?, ?> provider
+    ) {
         CallContext context = getContextContainer();
         context.getContainer().addProvider(annotation, provider);
     }

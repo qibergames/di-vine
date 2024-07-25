@@ -45,7 +45,7 @@ public interface ContainerInstance {
      *
      * @throws InvalidServiceException if the annotation does not have a RUNTIME retention
      */
-    void addProvider(@NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?> provider);
+    void addProvider(@NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?, ?> provider);
 
     /**
      * Remove a custom annotation from the container instance.
