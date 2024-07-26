@@ -405,7 +405,7 @@ public class Container {
      *
      * @return the container tree exported as json
      */
-    public JsonObject export() {
+    public @NotNull JsonObject export() {
         JsonObject json = new JsonObject();
 
         ContainerRegistry global = ofGlobal();
