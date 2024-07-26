@@ -83,6 +83,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
     /**
      * The map of fields to be lazily injected by the container.
+     * <p>
+     * All fields annotated with {@link Inject} that specify {@code lazy = true} will be injected by the container,
+     * after the whole dependency tree for a service is resolved.
      */
     private final @NotNull ThreadLocal<@NotNull Map<@NotNull Field, @NotNull LazyFieldAccess>> lazyFields = ThreadLocal.withInitial(LinkedHashMap::new);
 
@@ -90,6 +93,19 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * The indication, whether the container is currently injecting lazy fields.
      */
     private final @NotNull ThreadLocal<@NotNull Boolean> injectingLazyFields = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * The map of initialization methods to be lazily invoked by the container.
+     * <p>
+     * All methods annotated with {@link AfterInitialized} that specify {@code lazy = true} will be invoked by the
+     * container, after the whole dependency tree for a service is resolved.
+     */
+    private final @NotNull ThreadLocal<@NotNull Map<@NotNull Method, @NotNull Object>> lazyMethods = ThreadLocal.withInitial(LinkedHashMap::new);
+
+    /**
+     * The indication, whether the container is currently invoking lazy methods.
+     */
+    private final @NotNull ThreadLocal<@NotNull Boolean> invokingLazyMethods = ThreadLocal.withInitial(() -> false);
 
     /**
      * The root container of the container hierarchy. It is {@code null} if {@code this} container is the root.
@@ -474,6 +490,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         finally {
             stack.pop();
             injectLazyFields();
+            invokeLazyMethods();
         }
     }
 
@@ -805,11 +822,18 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // iterate over each method of the service class
         for (Method method : type.getDeclaredMethods()) {
             // skip methods that are not annotated with @AfterInitialized
-            if (!method.isAnnotationPresent(AfterInitialized.class))
+            AfterInitialized init = method.getDeclaredAnnotation(AfterInitialized.class);
+            if (init == null)
                 continue;
 
             // make the method accessible for the dependency injector
             method.setAccessible(true);
+
+            // register the method to be lazily invoked by the container
+            if (init.lazy()) {
+                lazyMethods.get().put(method, service);
+                continue;
+            }
 
             // invoke the method on the service instance
             try {
@@ -1108,9 +1132,6 @@ public class DefaultContainerImpl implements ContainerRegistry {
         if (!resolvingStack.get().isEmpty())
             return;
 
-        // resolve the lazy fields to be injected
-        Map<Field, LazyFieldAccess> fields = lazyFields.get();
-
         // return and clean up if the lazy fields had been already injected
         // this prevents infinite loops when resolving circular dependencies
         if (injectingLazyFields.get()) {
@@ -1120,6 +1141,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
         // begin injecting the lazy fields
         injectingLazyFields.set(true);
+
+        // resolve the lazy fields to be injected
+        Map<Field, LazyFieldAccess> fields = lazyFields.get();
 
         // iterate over the lazy fields to be injected
         for (Map.Entry<Field, LazyFieldAccess> entry : fields.entrySet()) {
@@ -1149,6 +1173,66 @@ public class DefaultContainerImpl implements ContainerRegistry {
         lazyFields.get().clear();
         // remove the thread-local map from the thread
         lazyFields.remove();
+    }
+
+    /**
+     * Invoke the lazy methods that are stored for the current dependency tree.
+     */
+    private void invokeLazyMethods() {
+        // return if the dependency resolving tree is still being resolved
+        if (!resolvingStack.get().isEmpty())
+            return;
+
+        // return if currently injecting lazy fields
+        // this prevents the lazy methods from being invoked before the lazy fields are injected
+        if (injectingLazyFields.get())
+            return;
+
+        // return if the lazy methods have already been invoked
+        // this prevents infinite loops when resolving circular dependencies
+        if (invokingLazyMethods.get()) {
+            clearLazyMethods();
+            return;
+        }
+
+        // begin invoking the lazy methods
+        invokingLazyMethods.set(true);
+
+        // resolve the lazy methods to be invoked
+        Map<Method, Object> methods = lazyMethods.get();
+
+        // iterate over the lazy methods to be invoked
+        for (Map.Entry<Method, Object> entry : methods.entrySet()) {
+            // resolve the method and the instance to invoke the method on
+            Method method = entry.getKey();
+            Object instance = entry.getValue();
+
+            // invoke the method on the instance
+            try {
+                method.invoke(instance);
+            } catch (InvocationTargetException | IllegalAccessException e) {
+                throw new ServiceInitializationException(
+                    "Error whilst invoking initialization method `" + method.getName() + "` of service " +
+                    instance.getClass().getName(), e
+                );
+            }
+        }
+
+        // clear the lazy methods after invoking them
+        clearLazyMethods();
+
+        // end invoking the lazy methods
+        invokingLazyMethods.set(false);
+    }
+
+    /**
+     * Clear the lazy methods that are stored for the current dependency tree.
+     */
+    private void clearLazyMethods() {
+        // clear any pending lazy methods that are stored in the thread-local map
+        lazyMethods.get().clear();
+        // remove the thread-local map from the thread
+        lazyMethods.remove();
     }
 
     /**
