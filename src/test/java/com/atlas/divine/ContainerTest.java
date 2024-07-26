@@ -511,4 +511,36 @@ class ContainerTest {
         int value = Container.<String, Integer>resolve("SECRET", Integer::parseInt);
         assertEquals(1337, value);
     }
+
+    @Test
+    public void test_lazy_service_init() {
+        @Service
+        class OtherService {
+            int get() {
+                return 123;
+            }
+        }
+
+        @Service
+        class MyService {
+            @Inject(lazy = true)
+            OtherService otherService;
+
+            int val;
+
+            @AfterInitialized
+            public void init() {
+                assertNull(otherService);
+            }
+
+            @AfterInitialized(lazy = true)
+            public void lazyInit() {
+                assertNotNull(otherService);
+                val = otherService.get();
+            }
+        }
+
+        MyService service = Container.get(MyService.class);
+        assertEquals(123, service.val);
+    }
 }
