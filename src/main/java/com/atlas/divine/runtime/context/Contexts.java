@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
  * The call contexts are used to separate services based on scopes.
  */
 @UtilityClass
-public class Security {
+public class Contexts {
     /**
      * Get the caller class of the method that called {@link Thread#getStackTrace()}.
      *
