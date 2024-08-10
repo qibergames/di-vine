@@ -3,6 +3,11 @@ package com.atlas.divine.runtime.context;
 import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Represents a utility class that resolves call context classes.
+ * <p>
+ * The call contexts are used to separate services based on scopes.
+ */
 @UtilityClass
 public class Security {
     /**
