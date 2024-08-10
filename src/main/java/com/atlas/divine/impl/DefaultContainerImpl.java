@@ -11,7 +11,7 @@ import com.atlas.divine.descriptor.generic.*;
 import com.atlas.divine.runtime.lifecycle.AfterInitialized;
 import com.atlas.divine.runtime.lifecycle.BeforeTerminate;
 import com.atlas.divine.descriptor.property.PropertyProvider;
-import com.atlas.divine.runtime.context.Security;
+import com.atlas.divine.runtime.context.Contexts;
 import com.atlas.divine.descriptor.factory.Factory;
 import com.atlas.divine.descriptor.factory.NoFactory;
 import com.atlas.divine.descriptor.implementation.NoImplementation;
@@ -312,7 +312,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
     @Override
     public <TServices> @NotNull List<@NotNull TServices> getMany(@NotNull String id) {
         try {
-            return getMany(id, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+            return getMany(id, Contexts.getCallerClass(Thread.currentThread().getStackTrace()));
         } catch (ClassNotFoundException e) {
             return getMany(id, Container.class);
         }
@@ -331,7 +331,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
     @Override
     public <T> @NotNull T get(@NotNull Class<T> type) {
         try {
-            return get(type, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+            return get(type, Contexts.getCallerClass(Thread.currentThread().getStackTrace()));
         } catch (ClassNotFoundException e) {
             return get(type, Container.class);
         }
@@ -369,7 +369,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         @NotNull Class<TService> type, @Nullable TProperties properties
     ) {
         try {
-            return get(type, Security.getCallerClass(Thread.currentThread().getStackTrace()), properties);
+            return get(type, Contexts.getCallerClass(Thread.currentThread().getStackTrace()), properties);
         } catch (ClassNotFoundException e) {
             return get(type, Container.class, properties);
         }
@@ -1588,7 +1588,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
     @Override
     public <T> void set(@NotNull Class<T> type, @NotNull T dependency) {
         try {
-            set(type, dependency, Security.getCallerClass(Thread.currentThread().getStackTrace()));
+            set(type, dependency, Contexts.getCallerClass(Thread.currentThread().getStackTrace()));
         } catch (ClassNotFoundException e) {
             set(type, dependency, Container.class);
         }
