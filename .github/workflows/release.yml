@@ -1,4 +1,8 @@
-name: Publish
+name: Semantic Release
+
+# This pipeline should be triggered manually. It will automatically generate a new version based on the changes
+# in the repository since the last release. This pipeline will update the `CHANGELOG.md` file, create a new tag,
+# and trigger the `publish.yml` pipeline to publish the new version to GitHub Packages.
 
 on:
     workflow_dispatch:
