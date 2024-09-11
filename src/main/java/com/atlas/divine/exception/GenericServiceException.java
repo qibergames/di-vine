@@ -22,7 +22,7 @@ public abstract class GenericServiceException extends RuntimeException {
      *
      * @param message the message that describes the error
      */
-    public GenericServiceException(String message) {
+    public GenericServiceException(@NotNull String message) {
         super(message);
     }
 }
