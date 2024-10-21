@@ -15,7 +15,9 @@ import com.atlas.divine.descriptor.generic.Service;
 import com.atlas.divine.descriptor.generic.ServiceScope;
 import com.atlas.divine.descriptor.property.NoProperties;
 import com.atlas.divine.descriptor.property.PropertyProvider;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -542,5 +544,30 @@ class ContainerTest {
 
         MyService service = Container.get(MyService.class);
         assertEquals(123, service.val);
+    }
+
+    @Test
+    public void test_dependency_hook() {
+        ContainerRegistry container = Container.ofGlobal("myContainer");
+
+        @Service(scope = ServiceScope.TRANSIENT)
+        @Getter
+        @Setter
+        class MyService {
+            private int value = 123;
+        }
+
+        container.addHook("MY_HOOK", (dependency, descriptor) -> {
+            if (dependency instanceof MyService)
+                ((MyService) dependency).setValue(321);
+            return dependency;
+        });
+
+        MyService service = container.get(MyService.class);
+        assertEquals(321, service.getValue());
+
+        container.removeHook("MY_HOOK");
+        service = container.get(MyService.class);
+        assertEquals(123, service.getValue());
     }
 }
