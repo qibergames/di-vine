@@ -136,13 +136,13 @@ You can use the following methods to request various containers depending on the
 
 ```java
 void testContainers() {
-    Container.ofGlobal(); // will return the root container if the container tree
+    Container.ofGlobal(); // will return the root container of the container tree
     
     Container.ofGlobal("my-container"); // will return a sub-container called `my-container`, 
     // that is a child of the root container
     
-    Container.ofContext(); // will return a unique container for the call context, that is called 
-    // `container-%container_id_increment%`
+    Container.ofContext(); // will return a unique container for the call context, that is a child
+    // of the root container, and is called `container-%container_id_increment%`
     
     Container.ofContext("other-container"); // will return a unique sub-container of 
     // `Container.ofContext()`, which is called `other-container`
@@ -227,7 +227,7 @@ void orderCars() {
     CarDealership dealership = Container.get(CarDealership.class);
     assert dealership.orderCar(CarType.MERCEDES) instanceof MercedesCar;
     assert dealership.orderCar(CarType.BMW) instanceof BMWCar;
-    assert dealership.orderCar(CarType.TERRARY) instanceof FerraryCar;
+    assert dealership.orderCar(CarType.FERRARY) instanceof FerraryCar;
 }
 ```
 
@@ -335,7 +335,7 @@ class MyLogger {
 }
 
 void initLogger() {
-    Container.registerProvider(Logger.class, (target, container) -> new MyLogger());
+    Container.registerProvider(Logger.class, (target, annotation, container) -> new MyLogger());
 }
 
 @Service
