@@ -105,7 +105,7 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    @NotNull <T> T get(@NotNull Class<T> type);
+    <T> @NotNull T get(@NotNull Class<T> type);
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
@@ -119,7 +119,7 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    @NotNull <T> T get(@NotNull Class<T> type, @NotNull Class<?> context);
+    <T> @NotNull T get(@NotNull Class<T> type, @NotNull Class<?> context);
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
@@ -135,7 +135,7 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    @NotNull <TService, TProperties> TService get(@NotNull Class<TService> type, @Nullable TProperties properties);
+    <TService, TProperties> @NotNull TService get(@NotNull Class<TService> type, @Nullable TProperties properties);
 
     /**
      * Resolve the specified dependency from the container and pass it to the mapper function.
@@ -152,7 +152,7 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    <TResult, TService> TResult resolve(
+    <TResult, TService> @NotNull TResult resolve(
         @NotNull Class<TService> type, @NotNull Class<?> context, @NotNull Function<@NotNull TService, TResult> mapper
     );
 
@@ -169,7 +169,9 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    <TDependency, TResult> TResult resolve(@NotNull String token, @NotNull Function<TDependency, TResult> mapper);
+    <TDependency, TResult> @NotNull TResult resolve(
+        @NotNull String token, @NotNull Function<TDependency, TResult> mapper
+    );
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
@@ -186,7 +188,7 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
-    @NotNull <TService, TProperties> TService get(
+    <TService, TProperties> @NotNull TService get(
         @NotNull Class<TService> type, @NotNull Class<?> context, @Nullable TProperties properties
     );
 
@@ -252,7 +254,7 @@ public interface ContainerInstance {
      *
      * @throws UnknownDependencyException if the value is not found, invalid, or the caller context
      */
-    @NotNull <T> T get(@NotNull String token);
+    <T> @NotNull T get(@NotNull String token);
 
     /**
      * Manually update the value of the specified dependency type in the container cache.

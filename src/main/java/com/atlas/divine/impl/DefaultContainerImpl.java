@@ -49,7 +49,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
     /**
      * The map of the registered dependency implementations in the container.
      */
-    private final @NotNull Map<@NotNull Class<?>, @NotNull CachedDependency<?>> dependencies = new ConcurrentHashMap<>();
+    private final @NotNull Map<@NotNull Class<?>, @NotNull CachedDependency<?>> dependencies =
+        new ConcurrentHashMap<>();
 
     /**
      * The map of the globally registered values in the container.
@@ -59,7 +60,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
     /**
      * The map of the sub-containers registered to this container.
      */
-    private final @NotNull Map<@NotNull String, @NotNull DefaultContainerImpl> containers = new ConcurrentHashMap<>();
+    private final @NotNull Map<@NotNull String, @NotNull DefaultContainerImpl> containers =
+        new ConcurrentHashMap<>();
 
     /**
      * The map of the hooks registered to this container that can modify dependencies on creation.
@@ -69,17 +71,20 @@ public class DefaultContainerImpl implements ContainerRegistry {
     /**
      * The map of the registered implementation providers for custom annotations.
      */
-    private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull AnnotationProvider<?, ?>> providers = new ConcurrentHashMap<>();
+    private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull AnnotationProvider<?, ?>> providers =
+        new ConcurrentHashMap<>();
 
     /**
      * The map of registered services that are grouped by their unique identifier.
      */
-    private final @NotNull Map<@NotNull String, @NotNull List<@NotNull Class<?>>> multiServices = new ConcurrentHashMap<>();
+    private final @NotNull Map<@NotNull String, @NotNull List<@NotNull Class<?>>> multiServices =
+        new ConcurrentHashMap<>();
 
     /**
      * The stack of classes that are currently being resolved in the container.
      */
-    private final @NotNull ThreadLocal<@NotNull Stack<@NotNull Class<?>>> resolvingStack = ThreadLocal.withInitial(Stack::new);
+    private final @NotNull ThreadLocal<@NotNull Stack<@NotNull Class<?>>> resolvingStack =
+        ThreadLocal.withInitial(Stack::new);
 
     /**
      * The map of fields to be lazily injected by the container.
@@ -87,7 +92,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * All fields annotated with {@link Inject} that specify {@code lazy = true} will be injected by the container,
      * after the whole dependency tree for a service is resolved.
      */
-    private final @NotNull ThreadLocal<@NotNull Map<@NotNull Field, @NotNull LazyFieldAccess>> lazyFields = ThreadLocal.withInitial(LinkedHashMap::new);
+    private final @NotNull ThreadLocal<@NotNull Map<@NotNull Field, @NotNull LazyFieldAccess>> lazyFields =
+        ThreadLocal.withInitial(LinkedHashMap::new);
 
     /**
      * The indication, whether the container is currently injecting lazy fields.
@@ -100,7 +106,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * All methods annotated with {@link AfterInitialized} that specify {@code lazy = true} will be invoked by the
      * container, after the whole dependency tree for a service is resolved.
      */
-    private final @NotNull ThreadLocal<@NotNull Map<@NotNull Method, @NotNull Object>> lazyMethods = ThreadLocal.withInitial(LinkedHashMap::new);
+    private final @NotNull ThreadLocal<@NotNull Map<@NotNull Method, @NotNull Object>> lazyMethods =
+        ThreadLocal.withInitial(LinkedHashMap::new);
 
     /**
      * The indication, whether the container is currently invoking lazy methods.
@@ -391,7 +398,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
-    public <TResult, TService> TResult resolve(
+    public <TResult, TService> @NotNull TResult resolve(
         @NotNull Class<TService> type, @NotNull Class<?> context, @NotNull Function<@NotNull TService, TResult> mapper
     ) {
         return mapper.apply(get(type, context));
@@ -409,7 +416,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @Override
-    public <TDependency, TResult> TResult resolve(
+    public <TDependency, TResult> @NotNull TResult resolve(
         @NotNull String token, @NotNull Function<TDependency, TResult> mapper
     ) {
         return mapper.apply(get(token));
@@ -761,7 +768,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
     @SuppressWarnings("unchecked")
-    private <TService, TProperties> TService createInstance(
+    private <TService, TProperties> @NotNull TService createInstance(
         @NotNull Class<TService> type, @NotNull Service service, @NotNull Class<?> context,
         @Nullable TProperties properties
     ) {
@@ -1010,7 +1017,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @return the modified dependency value
      * @param <T> the type of the dependency value
      */
-    private <T> T applyHooks(@NotNull T value, @NotNull Service service) throws ServiceInitializationException {
+    private <T> @NotNull T applyHooks(
+        @NotNull T value, @NotNull Service service
+    ) throws ServiceInitializationException {
         // loop through the registered dependency creation hooks
         for (Map.Entry<String, ContainerHook> entry : hooks.entrySet()) {
             // apply the hook for the value
@@ -1311,6 +1320,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param annotations the annotations of the field
      * @param target the class that requested the dependency
+     *
      * @return the implementation of the annotation
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1493,7 +1503,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <T> the type of the class
      */
     @SuppressWarnings("unchecked")
-    private <T> Constructor<T> getConstructor(@NotNull Class<T> type) throws InvalidServiceException {
+    private <T> @NotNull Constructor<T> getConstructor(@NotNull Class<T> type) throws InvalidServiceException {
         Constructor<T> constructor = null;
 
         // if the class has only one constructor, use it to create the instance
