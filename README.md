@@ -544,17 +544,45 @@ class ImageProcessor {
 }
 ```
 
+### Dependency hooks
+
+You may use dependency hooks to modify the instances when they are requested from the container.
+Hooks can modify the properties of the dependency, or even replace the instance with another one.
+
+```java
+@Service
+class MyService {
+    @Getter
+    @Setter
+    private int value = 5;
+}
+
+void useHooks() {
+    Container.addHook("MY_HOOK", (service, container) -> {
+        // override the default value of `5` to `10`
+        service.setValue(10);
+        return service;
+    });
+    
+    MyService service = Container.get(MyService.class);
+    assert service.getValue() == 10;
+}
+```
+
 ## Installation
+
 You may use the following code to use DiVine in your project.
 Check out our [jitpack](https://jitpack.io/#qibergames/di-vine) page for the latest version.
 
 ### Maven
+
 ```xml
 <repository>
     <id>jitpack.io</id>
     <url>https://jitpack.io</url>
 </repository>
 ```
+
 ```xml
 <dependency>
     <groupId>com.github.qibergames</groupId>
@@ -564,11 +592,13 @@ Check out our [jitpack](https://jitpack.io/#qibergames/di-vine) page for the lat
 ```
 
 ### Gradle
+
 ```gradle
 repositories {
     maven { url 'https://jitpack.io' }
 }
 ```
+
 ```gradle
 dependencies {
     implementation 'com.github.qibergames:di-vine:VERSION'
