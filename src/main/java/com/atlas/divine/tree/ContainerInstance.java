@@ -9,6 +9,8 @@ import com.atlas.divine.provider.AnnotationProvider;
 import com.atlas.divine.provider.Ref;
 import com.atlas.divine.tree.cache.ContainerHook;
 import com.atlas.divine.exception.UnknownDependencyException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -152,6 +154,7 @@ public interface ContainerInstance {
      * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
      * @throws ServiceInitializationException if an error occurs while initializing the service
      */
+    @CheckReturnValue
     <TResult, TService> @NotNull TResult resolve(
         @NotNull Class<TService> type, @NotNull Class<?> context, @NotNull Function<@NotNull TService, TResult> mapper
     );
@@ -172,6 +175,39 @@ public interface ContainerInstance {
     <TDependency, TResult> @NotNull TResult resolve(
         @NotNull String token, @NotNull Function<TDependency, TResult> mapper
     );
+
+    /**
+     * Get the specified dependency from the container and pass it to the callback consumer.
+     *
+     * @param type the class type of the dependency
+     * @param callback the consumer to invoke with the dependency instance
+     *
+     * @return the dependency value
+     *
+     * @param <TService> the type of the dependency
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    @CanIgnoreReturnValue
+    <TService> @NotNull TService inspect(@NotNull Class<TService> type, @NotNull Consumer<@NotNull TService> callback);
+
+    /**
+     * Get the specified dependency from the container and pass it to the callback consumer.
+     *
+     * @param token the token of the dependency
+     * @param callback the consumer to invoke with the dependency instance
+     *
+     * @return the dependency value
+     *
+     * @param <TDependency> the type of the dependency value
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     * @throws UnknownDependencyException if the requested dependency is not present in the container
+     */
+    @CanIgnoreReturnValue
+    <TDependency> @NotNull TDependency inspect(@NotNull String token, @NotNull Consumer<TDependency> callback);
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,

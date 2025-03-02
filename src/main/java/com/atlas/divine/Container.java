@@ -11,6 +11,7 @@ import com.atlas.divine.exception.UnknownDependencyException;
 import com.atlas.divine.tree.ContainerProvider;
 import com.atlas.divine.tree.ContainerRegistry;
 import com.atlas.divine.impl.ClassLoaderContainerProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.gson.JsonObject;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -253,6 +254,47 @@ public class Container {
     ) {
         CallContext context = getContextContainer();
         return context.getContainer().resolve(token, mapper);
+    }
+
+    /**
+     * Get the specified dependency from the container and pass it to the callback consumer.
+     *
+     * @param type the class type of the dependency
+     * @param callback the consumer to invoke with the dependency instance
+     *
+     * @return the dependency value
+     *
+     * @param <TService> the type of the dependency
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    @CanIgnoreReturnValue
+    public <TService> @NotNull TService inspect(
+        @NotNull Class<TService> type, @NotNull Consumer<@NotNull TService> callback
+    ) {
+        CallContext context = getContextContainer();
+        return context.getContainer().inspect(type, callback);
+    }
+
+    /**
+     * Get the specified dependency from the container and pass it to the callback consumer.
+     *
+     * @param token the token of the dependency
+     * @param callback the consumer to invoke with the dependency instance
+     *
+     * @return the dependency value
+     *
+     * @param <TDependency> the type of the dependency value
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     * @throws UnknownDependencyException if the requested dependency is not present in the container
+     */
+    @CanIgnoreReturnValue
+    public <TDependency> @NotNull TDependency inspect(@NotNull String token, @NotNull Consumer<TDependency> callback) {
+        CallContext context = getContextContainer();
+        return context.getContainer().inspect(token, callback);
     }
 
     /**

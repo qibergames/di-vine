@@ -18,6 +18,7 @@ import com.atlas.divine.descriptor.implementation.NoImplementation;
 import com.atlas.divine.descriptor.property.NoProperties;
 import com.atlas.divine.descriptor.property.NoPropertiesProvider;
 import com.atlas.divine.tree.ContainerRegistry;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import lombok.Getter;
@@ -421,6 +422,50 @@ public class DefaultContainerImpl implements ContainerRegistry {
     ) {
         return mapper.apply(get(token));
     }
+
+    /**
+     * Get the specified dependency from the container and pass it to the callback consumer.
+     *
+     * @param type the class type of the dependency
+     * @param callback the consumer to invoke with the dependency instance
+     *
+     * @return the dependency value
+     *
+     * @param <TService> the type of the dependency
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     */
+    @CanIgnoreReturnValue
+    public <TService> @NotNull TService inspect(
+        @NotNull Class<TService> type, @NotNull Consumer<@NotNull TService> callback
+    ) {
+        TService dependency = get(type);
+        callback.accept(dependency);
+        return dependency;
+    }
+
+    /**
+     * Get the specified dependency from the container and pass it to the callback consumer.
+     *
+     * @param token the token of the dependency
+     * @param callback the consumer to invoke with the dependency instance
+     *
+     * @return the dependency value
+     *
+     * @param <TDependency> the type of the dependency value
+     *
+     * @throws InvalidServiceException if the service descriptor is invalid or the service type cannot be a service
+     * @throws ServiceInitializationException if an error occurs while initializing the service
+     * @throws UnknownDependencyException if the requested dependency is not present in the container
+     */
+    @CanIgnoreReturnValue
+    public <TDependency> @NotNull TDependency inspect(@NotNull String token, @NotNull Consumer<TDependency> callback) {
+        TDependency dependency = get(token);
+        callback.accept(dependency);
+        return dependency;
+    }
+
 
     /**
      * Retrieve an instance from the container for the specified class type. Based on the service descriptor,
