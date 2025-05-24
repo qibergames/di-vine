@@ -932,7 +932,11 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
                 // call the inspector with the current method
                 ServiceMethod info = new ServiceMethodImpl(type, instance, method);
-                ((MethodInspector) inspector).inspect(info, annotationInstance, this);
+                try {
+                    ((MethodInspector) inspector).inspect(info, annotationInstance, this);
+                } catch (Exception e) {
+                    throw new ServiceInitializationException("Error while inspecting method " + method, e);
+                }
             });
         }
     }
