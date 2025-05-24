@@ -5,6 +5,7 @@ import com.qibergames.divine.descriptor.generic.Service;
 import com.qibergames.divine.descriptor.generic.ServiceLike;
 import com.qibergames.divine.exception.InvalidServiceException;
 import com.qibergames.divine.exception.ServiceInitializationException;
+import com.qibergames.divine.method.MethodInspector;
 import com.qibergames.divine.provider.AnnotationProvider;
 import com.qibergames.divine.provider.Ref;
 import com.qibergames.divine.tree.cache.ContainerHook;
@@ -47,7 +48,9 @@ public interface ContainerInstance {
      *
      * @throws InvalidServiceException if the annotation does not have a RUNTIME retention
      */
-    void addProvider(@NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?, ?> provider);
+    <TAnnotation extends Annotation> void addProvider(
+        @NotNull Class<TAnnotation> annotation, @NotNull AnnotationProvider<?, TAnnotation> provider
+    );
 
     /**
      * Remove a custom annotation from the container instance.
@@ -55,6 +58,25 @@ public interface ContainerInstance {
      * @param annotation the custom annotation that will be removed
      */
     void removeProvider(@NotNull Class<? extends Annotation> annotation);
+
+    /**
+     * Register a new method inspector for the specified annotation.
+     * <p>
+     * The inspector will be notified of each method upon service instantiation, that specify this annotation.
+     *
+     * @param annotation the annotation that marks methods to be inspected
+     * @param inspector the method inspection callback
+     */
+    <TAnnotation extends Annotation> void addInspector(
+        @NotNull Class<TAnnotation> annotation, @NotNull MethodInspector<TAnnotation> inspector
+    );
+
+    /**
+     * Remove a method inspector for the specified annotation.
+     *
+     * @param annotation the annotation that marks methods to be inspected
+     */
+    void removeInspector(@NotNull Class<? extends Annotation> annotation);
 
     /**
      * Register services in the container, that specify {@link Service#multiple()} = {@code true} in their descriptor.

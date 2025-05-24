@@ -4,6 +4,7 @@ import com.qibergames.divine.descriptor.generic.Service;
 import com.qibergames.divine.descriptor.generic.ServiceLike;
 import com.qibergames.divine.exception.InvalidServiceException;
 import com.qibergames.divine.exception.ServiceInitializationException;
+import com.qibergames.divine.method.MethodInspector;
 import com.qibergames.divine.provider.AnnotationProvider;
 import com.qibergames.divine.provider.Ref;
 import com.qibergames.divine.tree.cache.ContainerHook;
@@ -129,8 +130,8 @@ public class Container {
      *
      * @throws InvalidServiceException if the annotation does not have a RUNTIME retention
      */
-    public void addProvider(
-        @NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?, ?> provider
+    public <TAnnotation extends Annotation> void addProvider(
+        @NotNull Class<TAnnotation> annotation, @NotNull AnnotationProvider<?, TAnnotation> provider
     ) {
         CallContext context = getContextContainer();
         context.getContainer().addProvider(annotation, provider);
@@ -144,6 +145,31 @@ public class Container {
     public void removeProvider(@NotNull Class<? extends Annotation> annotation) {
         CallContext context = getContextContainer();
         context.getContainer().removeProvider(annotation);
+    }
+
+    /**
+     * Register a new method inspector for the specified annotation.
+     * <p>
+     * The inspector will be notified of each method upon service instantiation, that specify this annotation.
+     *
+     * @param annotation the annotation that marks methods to be inspected
+     * @param inspector the method inspection callback
+     */
+    public <TAnnotation extends Annotation> void addInspector(
+        @NotNull Class<TAnnotation> annotation, @NotNull MethodInspector<TAnnotation> inspector
+    ) {
+        CallContext context = getContextContainer();
+        context.getContainer().addInspector(annotation, inspector);
+    }
+
+    /**
+     * Remove a method inspector for the specified annotation.
+     *
+     * @param annotation the annotation that marks methods to be inspected
+     */
+    public void removeInspector(@NotNull Class<? extends Annotation> annotation) {
+        CallContext context = getContextContainer();
+        context.getContainer().removeInspector(annotation);
     }
 
     /**

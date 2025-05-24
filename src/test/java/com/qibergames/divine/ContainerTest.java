@@ -1,10 +1,12 @@
 package com.qibergames.divine;
 
-import com.qibergames.divine.Container;
 import com.qibergames.divine.exception.CircularDependencyException;
 import com.qibergames.divine.exception.InvalidServiceAccessException;
 import com.qibergames.divine.exception.InvalidServiceException;
+import com.qibergames.divine.method.MethodInspector;
+import com.qibergames.divine.method.ServiceMethod;
 import com.qibergames.divine.provider.AnnotationProvider;
+import com.qibergames.divine.provider.InjectionHandle;
 import com.qibergames.divine.provider.Ref;
 import com.qibergames.divine.runtime.lifecycle.AfterInitialized;
 import com.qibergames.divine.tree.ContainerInstance;
@@ -312,7 +314,8 @@ class ContainerTest {
     static class MyAnnotationProvider implements AnnotationProvider<MyCustomServiceImpl, MyCustomAnnotation> {
         @Override
         public @NotNull MyCustomServiceImpl provide(
-            @NotNull Class<?> target, @NotNull MyCustomAnnotation annotation, @NotNull ContainerInstance container
+            @NotNull Class<?> target, @NotNull MyCustomAnnotation annotation, @NotNull ContainerInstance container,
+            @NotNull InjectionHandle handle
         ) {
             return new MyCustomServiceImpl(annotation.val());
         }
@@ -570,5 +573,28 @@ class ContainerTest {
         container.removeHook("MY_HOOK");
         service = container.get(MyService.class);
         assertEquals(123, service.getValue());
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface InspectorTarget {}
+
+    @Service
+    static class InspectedService {
+        public int value = 100;
+
+        @InspectorTarget
+        public void foo(int newValue) {
+            value = newValue;
+        }
+    }
+
+    @Test
+    public void test_method_inspector() {
+        Container.addInspector(
+            InspectorTarget.class,
+            (method, annotation, container) -> method.invoke(200)
+        );
+        InspectedService service = Container.get(InspectedService.class);
+        assertEquals(200, service.value);
     }
 }
