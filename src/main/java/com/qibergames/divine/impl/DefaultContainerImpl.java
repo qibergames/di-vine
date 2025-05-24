@@ -2,8 +2,7 @@ package com.qibergames.divine.impl;
 
 import com.qibergames.divine.Container;
 import com.qibergames.divine.exception.*;
-import com.qibergames.divine.provider.AnnotationProvider;
-import com.qibergames.divine.provider.Ref;
+import com.qibergames.divine.provider.*;
 import com.qibergames.divine.runtime.lazy.LazyFieldAccess;
 import com.qibergames.divine.tree.cache.ContainerHook;
 import com.qibergames.divine.tree.cache.Dependency;
@@ -1097,12 +1096,12 @@ public class DefaultContainerImpl implements ContainerRegistry {
     private @NotNull Object createInjectionInstance(
         @NotNull Class<?> fieldType, @NotNull Type genericType, @NotNull String fieldName,
         @NotNull Class<?> targetClass, @NotNull Inject inject, @NotNull Class<?> context,
-        @NotNull InjectionTarget injectionTarget
+        @NotNull InjectionType injectionType
     ) {
         // throw an exception if lazy injection is applied to a non-class field target
-        if (inject.lazy() && injectionTarget != InjectionTarget.CLASS_FIELD) {
+        if (inject.lazy() && injectionType != InjectionType.CLASS_FIELD) {
             throw new InvalidServiceAccessException(
-                "Lazy injection can only be applied for class fields, not for " + injectionTarget + ". If you want to " +
+                "Lazy injection can only be applied for class fields, not for " + injectionType + ". If you want to " +
                 "lazily inject a dependency for this target, use Ref<T> instead."
             );
         }
@@ -1111,7 +1110,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         if (Ref.class.isAssignableFrom(fieldType)) {
             Class<?> refType = resolveReferenceType(genericType);
             return (Ref<?>) () -> createInjectionInstance(
-                refType, refType, fieldName, targetClass, inject, context, injectionTarget
+                refType, refType, fieldName, targetClass, inject, context, injectionType
             );
         }
 
@@ -1145,7 +1144,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
             // throw an exception if the field has both properties and a provider specified
             if (properties != null)
                 throw new InvalidServiceException(
-                    "Injection target " + injectionTarget.getName() + " " + fieldName + " of class " +
+                    "Injection target " + injectionType.getName() + " " + fieldName + " of class " +
                     targetClass.getName() + " has both properties and a provider specified"
                 );
 
@@ -1167,7 +1166,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         if (hasImplementation) {
             if (!fieldType.isAssignableFrom(implementation))
                 throw new ServiceInitializationException(
-                    "Service " + injectionTarget.getName() +  " " + fieldName + " implementation " +
+                    "Service " + injectionType.getName() +  " " + fieldName + " implementation " +
                     implementation.getName() + " does not implement the service type " + fieldType.getName()
                 );
             // use the implementation of the service, if it is specified
@@ -1346,7 +1345,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // create an instance of the service to be injected
         Object injection = createInjectionInstance(
             fieldType, genericType, fieldName, targetClass, inject, context,
-            InjectionTarget.CLASS_FIELD
+            InjectionType.CLASS_FIELD
         );
 
         // try to inject the instance of the service into the field
@@ -1365,11 +1364,14 @@ public class DefaultContainerImpl implements ContainerRegistry {
      *
      * @param annotations the annotations of the field
      * @param target the class that requested the dependency
+     * @param handle the type of the injection and information of the requesting service
      *
      * @return the implementation of the annotation
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private @Nullable Object provideAnnotation(@NotNull Annotation @NotNull [] annotations, @NotNull Class<?> target) {
+    private @Nullable Object provideAnnotation(
+        @NotNull Annotation @NotNull [] annotations, @NotNull Class<?> target, @NotNull InjectionHandle handle
+    ) {
         // iterate over the annotations of the field
         for (Annotation annotation : annotations) {
             // skip annotations that are not registered in the container
@@ -1379,7 +1381,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
             // provide the implementation of the annotation
             try {
-                return provider.provide(target, annotation, this);
+                return provider.provide(target, annotation, this, handle);
             } catch (Exception e) {
                 throw new ServiceInitializationException(
                     "Error while providing annotation " + annotation.annotationType().getName() + " for " +
@@ -1406,7 +1408,9 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // iterate over each field of the service class
         for (Field field : type.getDeclaredFields()) {
             // resolve the implementation of the service from the provider
-            Object provide = provideAnnotation(field.getAnnotations(), field.getType());
+            Object provide = provideAnnotation(
+                field.getAnnotations(), field.getType(), new FieldInjectionHandle(type, instance, field)
+            );
             // skip the field if the provider did not provide an implementation
             if (provide == null)
                 continue;
@@ -1483,13 +1487,15 @@ public class DefaultContainerImpl implements ContainerRegistry {
             if (inject != null) {
                 args[i] = createInjectionInstance(
                     paramType, genericType, paramName, type, inject, context,
-                    InjectionTarget.CONSTRUCTOR_PARAMETER
+                    InjectionType.CONSTRUCTOR_PARAMETER
                 );
                 continue;
             }
 
             // handle custom annotation injection
-            Object provide = provideAnnotation(paramAnnotations, paramType);
+            Object provide = provideAnnotation(
+                paramAnnotations, paramType, new ConstructorInjectionHandle(type)
+            );
             if (provide != null)
                 args[i] = provide;
 

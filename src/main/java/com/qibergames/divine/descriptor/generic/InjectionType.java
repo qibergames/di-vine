@@ -1,4 +1,4 @@
-package com.qibergames.divine.impl;
+package com.qibergames.divine.descriptor.generic;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
  */
 @RequiredArgsConstructor
 @Getter
-public enum InjectionTarget {
+public enum InjectionType {
     /**
      * `CLASS_FIELD` indicates, that the dependency should be injected into a class field.
      */

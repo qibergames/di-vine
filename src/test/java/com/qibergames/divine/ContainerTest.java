@@ -1,10 +1,10 @@
 package com.qibergames.divine;
 
-import com.qibergames.divine.Container;
 import com.qibergames.divine.exception.CircularDependencyException;
 import com.qibergames.divine.exception.InvalidServiceAccessException;
 import com.qibergames.divine.exception.InvalidServiceException;
 import com.qibergames.divine.provider.AnnotationProvider;
+import com.qibergames.divine.provider.InjectionHandle;
 import com.qibergames.divine.provider.Ref;
 import com.qibergames.divine.runtime.lifecycle.AfterInitialized;
 import com.qibergames.divine.tree.ContainerInstance;
@@ -312,7 +312,8 @@ class ContainerTest {
     static class MyAnnotationProvider implements AnnotationProvider<MyCustomServiceImpl, MyCustomAnnotation> {
         @Override
         public @NotNull MyCustomServiceImpl provide(
-            @NotNull Class<?> target, @NotNull MyCustomAnnotation annotation, @NotNull ContainerInstance container
+            @NotNull Class<?> target, @NotNull MyCustomAnnotation annotation, @NotNull ContainerInstance container,
+            @NotNull InjectionHandle handle
         ) {
             return new MyCustomServiceImpl(annotation.val());
         }
