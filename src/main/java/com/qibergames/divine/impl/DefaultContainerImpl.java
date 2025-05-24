@@ -2,6 +2,8 @@ package com.qibergames.divine.impl;
 
 import com.qibergames.divine.Container;
 import com.qibergames.divine.exception.*;
+import com.qibergames.divine.method.MethodInspector;
+import com.qibergames.divine.method.ServiceMethod;
 import com.qibergames.divine.provider.*;
 import com.qibergames.divine.runtime.lazy.LazyFieldAccess;
 import com.qibergames.divine.tree.cache.ContainerHook;
@@ -72,6 +74,12 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * The map of the registered implementation providers for custom annotations.
      */
     private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull AnnotationProvider<?, ?>> providers =
+        new ConcurrentHashMap<>();
+
+    /**
+     * The map of the registered service method inspector callbacks for the specified annotations.
+     */
+    private final @NotNull Map<@NotNull Class<? extends Annotation>, @NotNull MethodInspector<?>> inspectors =
         new ConcurrentHashMap<>();
 
     /**
@@ -224,8 +232,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws InvalidServiceException if the annotation does not have a RUNTIME retention
      */
     @Override
-    public void addProvider(
-        @NotNull Class<? extends Annotation> annotation, @NotNull AnnotationProvider<?, ?> provider
+    public <TAnnotation extends Annotation> void addProvider(
+        @NotNull Class<TAnnotation> annotation, @NotNull AnnotationProvider<?, TAnnotation> provider
     ) {
         Retention retention = annotation.getAnnotation(Retention.class);
         if (retention == null || retention.value() != RetentionPolicy.RUNTIME)
@@ -243,6 +251,36 @@ public class DefaultContainerImpl implements ContainerRegistry {
     @Override
     public void removeProvider(@NotNull Class<? extends Annotation> annotation) {
         providers.remove(annotation);
+    }
+
+    /**
+     * Register a new method inspector for the specified annotation.
+     * <p>
+     * The inspector will be notified of each method upon service instantiation, that specify this annotation.
+     *
+     * @param annotation the annotation that marks methods to be inspected
+     * @param inspector the method inspection callback
+     */
+    @Override
+    public <TAnnotation extends Annotation> void addInspector(
+        @NotNull Class<TAnnotation> annotation, @NotNull MethodInspector<TAnnotation> inspector
+    ) {
+        Retention retention = annotation.getAnnotation(Retention.class);
+        if (retention == null || retention.value() != RetentionPolicy.RUNTIME)
+            throw new InvalidServiceException(
+                "Annotation " + annotation.getName() + " must have a RUNTIME retention"
+            );
+        inspectors.put(annotation, inspector);
+    }
+
+    /**
+     * Remove a method inspector for the specified annotation.
+     *
+     * @param annotation the annotation that marks methods to be inspected
+     */
+    @Override
+    public void removeInspector(@NotNull Class<? extends Annotation> annotation) {
+        inspectors.remove(annotation);
     }
 
     /**
@@ -594,6 +632,26 @@ public class DefaultContainerImpl implements ContainerRegistry {
      */
     private @NotNull Class<?> resolveReferenceType(@NotNull Type genericType) {
         // validate that the generic type is a parameterized type
+        Type typeArgument = getTypeArgument(genericType);
+
+        // convert the type argument to a class type
+        if (typeArgument instanceof Class<?>)
+            return (Class<?>) typeArgument;
+        else if (typeArgument instanceof ParameterizedType)
+            return (Class<?>) ((ParameterizedType) typeArgument).getRawType();
+        else
+            throw new InvalidServiceAccessException(
+                "Generic type " + genericType + " must have a class type as its actual type argument"
+            );
+    }
+
+    /**
+     * Resolve the first type argument of the specified type.
+     *
+     * @param genericType the generic type to check
+     * @return the first type argument of the type
+     */
+    private static Type getTypeArgument(@NotNull Type genericType) {
         if (!(genericType instanceof ParameterizedType)) throw new InvalidServiceAccessException(
             "Ref<T> generic type " + genericType + " must be a parameterized type"
         );
@@ -605,17 +663,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         );
 
         // resolve the actual type argument of the generic type
-        Type typeArgument = typeArguments[0];
-
-        // convert the type argument to a class type
-        if (typeArgument instanceof Class<?>)
-            return (Class<?>) typeArgument;
-        else if (typeArgument instanceof ParameterizedType)
-            return (Class<?>) ((ParameterizedType) typeArgument).getRawType();
-        else
-            throw new InvalidServiceAccessException(
-                "Generic type " + genericType + " must have a class type as its actual type argument"
-            );
+        return typeArguments[0];
     }
 
     /**
@@ -854,7 +902,39 @@ public class DefaultContainerImpl implements ContainerRegistry {
         // call each method of the service annotated with @AfterInitialized
         handleServiceInit(value, type);
 
+        // call each method of the service annotated with custom annotations
+        inspectMethods(value, type);
+
         return value;
+    }
+
+    /**
+     * Inspect the declared methods of the specified service instance, and invoke the registered inspector.
+     *
+     * @param instance the instance of the service type
+     * @param type the class type of the service
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void inspectMethods(@NotNull Object instance, @NotNull Class<?> type) {
+        // resolve each method of the implementing service class
+        // we must check the top level class
+        for (Method method : instance.getClass().getDeclaredMethods()) {
+            // ignore static methods, as they are not a part of service instances
+            if (Modifier.isStatic(method.getModifiers()))
+                continue;
+
+            // find the corresponding inspector for the annotations of the method
+            inspectors.forEach((annotation, inspector) -> {
+                // check if the method specifies a custom annotation
+                Annotation annotationInstance = method.getDeclaredAnnotation(annotation);
+                if (annotationInstance == null)
+                    return;
+
+                // call the inspector with the current method
+                ServiceMethod info = new ServiceMethodImpl(type, instance, method);
+                ((MethodInspector) inspector).inspect(info, annotationInstance, this);
+            });
+        }
     }
 
     /**

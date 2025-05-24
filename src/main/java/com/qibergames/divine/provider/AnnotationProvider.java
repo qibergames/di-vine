@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.annotation.Annotation;
 
 /**
- * Represents a functional interface that provides an implementation for the specified interface.
+ * Represents a functional interface that provides an implementation for a service interface.
  * <p>
  * The {@link #provide(Class, Annotation, ContainerInstance, InjectionHandle)} method is called, to resolve the
  * implementation of a service, whenever its corresponding custom annotation is present on a field or constructor
