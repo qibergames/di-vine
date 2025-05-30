@@ -3,8 +3,6 @@ package com.qibergames.divine;
 import com.qibergames.divine.exception.CircularDependencyException;
 import com.qibergames.divine.exception.InvalidServiceAccessException;
 import com.qibergames.divine.exception.InvalidServiceException;
-import com.qibergames.divine.method.MethodInspector;
-import com.qibergames.divine.method.ServiceMethod;
 import com.qibergames.divine.provider.AnnotationProvider;
 import com.qibergames.divine.provider.InjectionHandle;
 import com.qibergames.divine.provider.Ref;

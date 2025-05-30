@@ -1,4 +1,4 @@
-package com.qibergames.divine.method;
+package com.qibergames.divine.inspector;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

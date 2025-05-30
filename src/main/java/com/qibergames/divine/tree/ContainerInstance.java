@@ -5,7 +5,7 @@ import com.qibergames.divine.descriptor.generic.Service;
 import com.qibergames.divine.descriptor.generic.ServiceLike;
 import com.qibergames.divine.exception.InvalidServiceException;
 import com.qibergames.divine.exception.ServiceInitializationException;
-import com.qibergames.divine.method.MethodInspector;
+import com.qibergames.divine.inspector.MethodInspector;
 import com.qibergames.divine.provider.AnnotationProvider;
 import com.qibergames.divine.provider.Ref;
 import com.qibergames.divine.tree.cache.ContainerHook;
@@ -313,6 +313,16 @@ public interface ContainerInstance {
      * @throws UnknownDependencyException if the value is not found, invalid, or the caller context
      */
     <T> @NotNull T get(@NotNull String token);
+
+    /**
+     * Inject into the fields of a service that was instantiated without DiVine.
+     *
+     * @param service the instance of the service to inject into
+     * @return the service instance
+     *
+     * @param <T> the type of the service
+     */
+    <T> @NotNull T injectInto(@NotNull T service);
 
     /**
      * Manually update the value of the specified dependency type in the container cache.

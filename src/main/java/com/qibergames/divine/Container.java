@@ -4,7 +4,7 @@ import com.qibergames.divine.descriptor.generic.Service;
 import com.qibergames.divine.descriptor.generic.ServiceLike;
 import com.qibergames.divine.exception.InvalidServiceException;
 import com.qibergames.divine.exception.ServiceInitializationException;
-import com.qibergames.divine.method.MethodInspector;
+import com.qibergames.divine.inspector.MethodInspector;
 import com.qibergames.divine.provider.AnnotationProvider;
 import com.qibergames.divine.provider.Ref;
 import com.qibergames.divine.tree.cache.ContainerHook;
@@ -376,6 +376,19 @@ public class Container {
     public @NotNull <T> T get(@NotNull String token) {
         CallContext context = getContextContainer();
         return context.getContainer().get(token);
+    }
+
+    /**
+     * Inject into the fields of a service that was instantiated without DiVine.
+     *
+     * @param service the instance of the service to inject into
+     * @return the service instance
+     *
+     * @param <T> the type of the service
+     */
+    public <T> @NotNull T injectInto(@NotNull T service) {
+        CallContext context = getContextContainer();
+        return context.getContainer().injectInto(service);
     }
 
     /**
