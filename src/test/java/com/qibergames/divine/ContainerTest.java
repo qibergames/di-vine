@@ -595,4 +595,26 @@ class ContainerTest {
         InspectedService service = Container.get(InspectedService.class);
         assertEquals(200, service.value);
     }
+
+    @Test
+    public void test_inject_into() {
+        @Service
+        class MyService {
+            public final int value = 100;
+        }
+
+        @Service
+        class MyExternalService {
+            @Inject
+            private MyService myService;
+
+            public MyExternalService() {
+                Container.injectInto(this);
+            }
+        }
+
+        MyExternalService service = new MyExternalService();
+        assertNotNull(service.myService);
+        assertEquals(100, service.myService.value);
+    }
 }
