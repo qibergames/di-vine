@@ -906,7 +906,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <TService> the type of the service
      */
     private <TService> void injectService(
-        @NotNull Service descriptor, @NotNull Class<TService> type, @NotNull TService value, @NotNull Class<?> context
+        @NotNull Service descriptor, @NotNull Class<? extends TService> type, @NotNull TService value, @NotNull Class<?> context
     ) {
         // inject the dependencies for the instance's fields
         injectFields(type, value, context);
@@ -968,7 +968,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @throws ServiceRuntimeException if an error occurs while invoking the service initialization method
      */
     private <TService> void handleServiceInit(
-        @NotNull TService service, @NotNull Class<TService> type
+        @NotNull TService service, @NotNull Class<? extends TService> type
     ) throws ServiceRuntimeException {
         // iterate over each method of the service class
         for (Method method : type.getDeclaredMethods()) {
@@ -1503,7 +1503,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <TService> the type of the service
      */
     private <TService> void injectProviders(
-        @NotNull Class<TService> type, @NotNull TService instance
+        @NotNull Class<? extends TService> type, @NotNull TService instance
     ) throws ServiceInitializationException {
         // iterate over each field of the service class
         for (Field field : type.getDeclaredFields()) {
@@ -1749,7 +1749,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
      */
     @Override
     public <T> @NotNull T injectInto(@NotNull T service) {
-        injectFields(service.getClass(), service, service.getClass());
+        Service descriptor = resolveDescriptor(service.getClass(), true);
+        injectService(descriptor, service.getClass(), service, service.getClass());
         return service;
     }
 
