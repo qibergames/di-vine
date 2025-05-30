@@ -379,6 +379,19 @@ public class Container {
     }
 
     /**
+     * Inject into the fields of a service that was instantiated without DiVine.
+     *
+     * @param service the instance of the service to inject into
+     * @return the service instance
+     *
+     * @param <T> the type of the service
+     */
+    public <T> @NotNull T injectInto(@NotNull T service) {
+        CallContext context = getContextContainer();
+        return context.getContainer().injectInto(service);
+    }
+
+    /**
      * Manually update the value of the specified dependency type in the container cache.
      *
      * @param type the class type of the dependency

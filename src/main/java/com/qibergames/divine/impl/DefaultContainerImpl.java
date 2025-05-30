@@ -850,7 +850,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * Create an instance of the specified service type.
      *
      * @param type the type of the dependency to be instantiated
-     * @param service the dependency service descriptor
+     * @param descriptor the dependency service descriptor
      * @param context the class that requested the dependency
      * @return a new instance of the service type
      *
@@ -861,26 +861,26 @@ public class DefaultContainerImpl implements ContainerRegistry {
      */
     @SuppressWarnings("unchecked")
     private <TService, TProperties> @NotNull TService createInstance(
-        @NotNull Class<TService> type, @NotNull Service service, @NotNull Class<?> context,
+        @NotNull Class<TService> type, @NotNull Service descriptor, @NotNull Class<?> context,
         @Nullable TProperties properties
     ) {
         TService value;
-        Class<?> implementation = service.implementation();
+        Class<?> implementation = descriptor.implementation();
 
         // validate that the properties match the factory of the service
-        validateProperties(service, properties);
+        validateProperties(descriptor, properties);
 
         // resolve the factory from the service descriptor
         // use the factory to instantiate the service, if it is specified
-        Factory<TService, TProperties> factory = createFactory(service.factory());
+        Factory<TService, TProperties> factory = createFactory(descriptor.factory());
         if (factory != null)
-            value = factory.create(service, type, context, properties);
+            value = factory.create(descriptor, type, context, properties);
 
         // use the implementation of the service, if it is specified
         else if (implementation != NoImplementation.class) {
             if (!type.isAssignableFrom(implementation))
                 throw new InvalidServiceException(
-                    "Service " + service + " implementation " + implementation.getName() +
+                    "Service " + descriptor + " implementation " + implementation.getName() +
                     " does not implement the service type " + type.getName()
                 );
             type = (Class<TService>) implementation;
@@ -890,6 +890,24 @@ public class DefaultContainerImpl implements ContainerRegistry {
         else
             value = createInstanceWithDependencies(type, context);
 
+        injectService(descriptor, type, value, context);
+
+        return value;
+    }
+
+    /**
+     * Inject into the fields of the specified service instance.
+     *
+     * @param descriptor the dependency service descriptor
+     * @param type the type of the dependency to be instantiated
+     * @param value the instance of the service
+     * @param context the class that requested the dependency
+     *
+     * @param <TService> the type of the service
+     */
+    private <TService> void injectService(
+        @NotNull Service descriptor, @NotNull Class<TService> type, @NotNull TService value, @NotNull Class<?> context
+    ) {
         // inject the dependencies for the instance's fields
         injectFields(type, value, context);
 
@@ -897,15 +915,13 @@ public class DefaultContainerImpl implements ContainerRegistry {
         injectProviders(type, value);
 
         // apply the registered hooks to the instance
-        value = applyHooks(value, service);
+        value = applyHooks(value, descriptor);
 
         // call each method of the service annotated with @AfterInitialized
         handleServiceInit(value, type);
 
         // call each method of the service annotated with custom annotations
         inspectMethods(value, type);
-
-        return value;
     }
 
     /**
@@ -1382,7 +1398,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param <T> the type of the instance
      */
     private <T> void injectFields(
-        @NotNull Class<T> clazz, @NotNull T instance, @NotNull Class<?> context
+        @NotNull Class<? extends T> clazz, @NotNull T instance, @NotNull Class<?> context
     ) throws ServiceInitializationException {
         // loop through the fields of the class
         for (Field field : clazz.getDeclaredFields()) {
@@ -1721,6 +1737,20 @@ public class DefaultContainerImpl implements ContainerRegistry {
         @SuppressWarnings("unchecked")
         T value = (T) values.get(token);
         return value;
+    }
+
+    /**
+     * Inject into the fields of a service that was instantiated without DiVine.
+     *
+     * @param service the instance of the service to inject into
+     * @return the service instance
+     *
+     * @param <T> the type of the service
+     */
+    @Override
+    public <T> @NotNull T injectInto(@NotNull T service) {
+        injectFields(service.getClass(), service, service.getClass());
+        return service;
     }
 
     /**
