@@ -890,7 +890,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
         else
             value = createInstanceWithDependencies(type, context);
 
-        injectService(descriptor, type, value, context);
+        injectService(descriptor, type, value, context, true);
 
         return value;
     }
@@ -902,11 +902,13 @@ public class DefaultContainerImpl implements ContainerRegistry {
      * @param type the type of the dependency to be instantiated
      * @param value the instance of the service
      * @param context the class that requested the dependency
+     * @param init the indication, whether the initialization lifecycle of the service should be called
      *
      * @param <TService> the type of the service
      */
     private <TService> void injectService(
-        @NotNull Service descriptor, @NotNull Class<? extends TService> type, @NotNull TService value, @NotNull Class<?> context
+        @NotNull Service descriptor, @NotNull Class<? extends TService> type, @NotNull TService value,
+        @NotNull Class<?> context, boolean init
     ) {
         // inject the dependencies for the instance's fields
         injectFields(type, value, context);
@@ -918,7 +920,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
         value = applyHooks(value, descriptor);
 
         // call each method of the service annotated with @AfterInitialized
-        handleServiceInit(value, type);
+        if (init)
+            handleServiceInit(value, type);
 
         // call each method of the service annotated with custom annotations
         inspectMethods(value, type);
@@ -1741,6 +1744,8 @@ public class DefaultContainerImpl implements ContainerRegistry {
 
     /**
      * Inject into the fields of a service that was instantiated without DiVine.
+     * <p>
+     * This method will not invoke the service initialization lifecycle.
      *
      * @param service the instance of the service to inject into
      * @return the service instance
@@ -1750,7 +1755,7 @@ public class DefaultContainerImpl implements ContainerRegistry {
     @Override
     public <T> @NotNull T injectInto(@NotNull T service) {
         Service descriptor = resolveDescriptor(service.getClass(), true);
-        injectService(descriptor, service.getClass(), service, service.getClass());
+        injectService(descriptor, service.getClass(), service, service.getClass(), false);
         return service;
     }
 
