@@ -2,8 +2,8 @@ package com.qibergames.divine.impl;
 
 import com.qibergames.divine.Container;
 import com.qibergames.divine.exception.*;
-import com.qibergames.divine.method.MethodInspector;
-import com.qibergames.divine.method.ServiceMethod;
+import com.qibergames.divine.inspector.MethodInspector;
+import com.qibergames.divine.inspector.ServiceMethod;
 import com.qibergames.divine.provider.*;
 import com.qibergames.divine.runtime.lazy.LazyFieldAccess;
 import com.qibergames.divine.tree.cache.ContainerHook;

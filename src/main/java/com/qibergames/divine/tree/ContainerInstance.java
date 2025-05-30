@@ -5,7 +5,7 @@ import com.qibergames.divine.descriptor.generic.Service;
 import com.qibergames.divine.descriptor.generic.ServiceLike;
 import com.qibergames.divine.exception.InvalidServiceException;
 import com.qibergames.divine.exception.ServiceInitializationException;
-import com.qibergames.divine.method.MethodInspector;
+import com.qibergames.divine.inspector.MethodInspector;
 import com.qibergames.divine.provider.AnnotationProvider;
 import com.qibergames.divine.provider.Ref;
 import com.qibergames.divine.tree.cache.ContainerHook;

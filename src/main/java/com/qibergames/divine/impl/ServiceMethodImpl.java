@@ -1,7 +1,7 @@
 package com.qibergames.divine.impl;
 
 import com.qibergames.divine.exception.ServiceRuntimeException;
-import com.qibergames.divine.method.ServiceMethod;
+import com.qibergames.divine.inspector.ServiceMethod;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
